@@ -1,0 +1,22 @@
+# 회의 데이터 (개인정보)
+meetings/
+voices/
+
+# 자동 생성 파일
+action_status.json
+settings.json
+vocab_ko.json
+vocab_ja.json
+vocab_en.json
+
+# 회사 내부 정보
+glossary.json
+
+# Claude Code 내부 데이터
+.claude/
+
+# 시스템
+.DS_Store
+__pycache__/
+*.pyc
+*.pyo

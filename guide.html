@@ -1,0 +1,2333 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 회의 어시스턴트 — 소개 및 사용 가이드</title>
+<style>
+/* ── 기반 ──────────────────────────────────────────────── */
+:root {
+  --bg:       #07070a;
+  --surface:  #0f0f14;
+  --card:     #14141a;
+  --card2:    #1a1a22;
+  --bd:       rgba(255,255,255,0.07);
+  --bd2:      rgba(255,255,255,0.13);
+  --t1:       #f0f0f4;
+  --t2:       #a1a1b0;
+  --t3:       #6b6b7e;
+  --acc:      #818cf8;
+  --acc2:     #6366f1;
+  --acc3:     #4f46e5;
+  --green:    #4ade80;
+  --yellow:   #fbbf24;
+  --red:      #f87171;
+  --teal:     #2dd4bf;
+  --pink:     #f472b6;
+  --r:        12px;
+  --r2:       18px;
+  --nav-bg:   rgba(7,7,10,0.88);
+  --code-bg:  rgba(0,0,0,0.45);
+  --code-c:   #7dd3fc;
+  --code-comment: #4b5563;
+  --code-cmd: #86efac;
+  --code-arg: #fde68a;
+  --tip-ex-bg: rgba(0,0,0,0.3);
+  --btn-ghost-bg: rgba(255,255,255,0.06);
+  --btn-ghost-bd: rgba(255,255,255,0.13);
+  --row-bg:   rgba(255,255,255,0.05);
+  --name-bg:  rgba(255,255,255,0.12);
+  --text-bg:  rgba(255,255,255,0.06);
+  --screen-sidebar-bg: var(--surface);
+}
+[data-theme="light"] {
+  --bg:       #ececf3;
+  --surface:  #f5f5fb;
+  --card:     #ffffff;
+  --card2:    #e6e6ef;
+  --bd:       rgba(0,0,0,0.13);
+  --bd2:      rgba(0,0,0,0.22);
+  --t1:       #18181b;
+  --t2:       #3f3f46;
+  --t3:       #52525b;
+  --acc:      #6366f1;
+  --acc2:     #4f46e5;
+  --acc3:     #4338ca;
+  --green:    #15803d;
+  --yellow:   #a16207;
+  --red:      #b91c1c;
+  --teal:     #0f766e;
+  --pink:     #9d174d;
+  --nav-bg:   rgba(245,245,251,0.95);
+  --code-bg:  #1e1e2e;
+  --code-c:   #1d6fbb;
+  --code-comment: #6b7280;
+  --code-cmd: #15803d;
+  --code-arg: #a16207;
+  --tip-ex-bg: rgba(0,0,0,0.05);
+  --btn-ghost-bg: rgba(0,0,0,0.07);
+  --btn-ghost-bd: rgba(0,0,0,0.22);
+  --row-bg:   rgba(0,0,0,0.05);
+  --name-bg:  rgba(0,0,0,0.12);
+  --text-bg:  rgba(0,0,0,0.07);
+  --screen-sidebar-bg: #e8e8f2;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--t1);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  overflow-x: hidden;
+  transition: background .25s, color .25s;
+}
+a { color: var(--acc); text-decoration: none; }
+
+/* ── 레이아웃 ──────────────────────────────────────────── */
+.container { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+section { padding: 96px 0; }
+
+/* ── 타이포 ────────────────────────────────────────────── */
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.28);
+  color: #c7d2fe; font-size: 11px; font-weight: 600; letter-spacing: .06em;
+  text-transform: uppercase; padding: 4px 11px; border-radius: 999px;
+  margin-bottom: 18px;
+}
+h1 { font-size: clamp(36px, 5vw, 60px); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+h2 { font-size: clamp(24px, 3.5vw, 36px); font-weight: 700; letter-spacing: -.02em; margin-bottom: 12px; }
+h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+.sub { font-size: 17px; color: var(--t2); line-height: 1.7; max-width: 580px; margin-top: 14px; }
+.sec-label { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--t3); margin-bottom: 8px; }
+.sec-title { font-size: clamp(22px, 3vw, 32px); font-weight: 700; letter-spacing: -.02em; margin-bottom: 10px; }
+.sec-desc { font-size: 15px; color: var(--t2); margin-bottom: 48px; max-width: 540px; }
+
+/* ── NAV ────────────────────────────────────────────────── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: var(--nav-bg); backdrop-filter: blur(18px);
+  border-bottom: 1px solid var(--bd);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 32px; height: 56px;
+}
+.nav-logo { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 14px; color: var(--t1); }
+.nav-logo .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--acc); box-shadow: 0 0 8px var(--acc); }
+.nav-links { display: flex; gap: 6px; }
+.nav-links a {
+  font-size: 13px; color: var(--t2); padding: 6px 13px; border-radius: 7px;
+  transition: all .15s;
+}
+.nav-links a:hover { color: var(--t1); background: var(--btn-ghost-bg); }
+.theme-toggle {
+  background: var(--btn-ghost-bg); border: 1px solid var(--btn-ghost-bd);
+  color: var(--t2); padding: 6px 11px; border-radius: 8px; font-size: 14px;
+  cursor: pointer; transition: all .15s; margin-left: 8px; line-height: 1;
+}
+.theme-toggle:hover { color: var(--t1); }
+
+/* ── HERO ────────────────────────────────────────────────── */
+#hero {
+  padding: 140px 0 100px;
+  background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(99,102,241,0.18) 0%, transparent 70%), var(--bg);
+  text-align: center;
+}
+#hero h1 { background: linear-gradient(135deg, #e0e7ff 0%, #a5b4fc 40%, #818cf8 70%, #6366f1 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+[data-theme="light"] #hero h1 { background: linear-gradient(135deg, #4338ca 0%, #6366f1 50%, #7c3aed 100%); -webkit-background-clip: text; background-clip: text; }
+#hero .sub { margin: 0 auto; }
+.hero-btns { display: flex; gap: 12px; justify-content: center; margin-top: 36px; flex-wrap: wrap; }
+.btn-hero {
+  padding: 13px 28px; border-radius: 10px; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: all .18s; border: none;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.btn-hero-primary { background: var(--acc2); color: #fff; box-shadow: 0 4px 20px rgba(99,102,241,0.4); }
+.btn-hero-primary:hover { background: var(--acc3); transform: translateY(-2px); box-shadow: 0 8px 28px rgba(99,102,241,0.5); }
+.btn-hero-ghost { background: var(--btn-ghost-bg); color: var(--t1); border: 1px solid var(--btn-ghost-bd); }
+.btn-hero-ghost:hover { background: rgba(255,255,255,0.1); transform: translateY(-1px); }
+.tech-pills { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 36px; }
+.tech-pill {
+  font-size: 12px; font-weight: 500; padding: 5px 13px; border-radius: 999px;
+  border: 1px solid var(--bd2); color: var(--t2); background: var(--card);
+}
+
+/* ── 화면 미리보기 ────────────────────────────────────────── */
+.screen-preview {
+  margin: 60px auto 0; max-width: 900px; position: relative;
+}
+.screen-frame {
+  background: var(--card); border: 1px solid var(--bd2);
+  border-radius: var(--r2); overflow: hidden;
+  box-shadow: 0 40px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.05);
+}
+.screen-titlebar {
+  background: var(--card2); padding: 12px 16px; display: flex; align-items: center; gap: 8px;
+  border-bottom: 1px solid var(--bd);
+}
+.screen-dot { width: 11px; height: 11px; border-radius: 50%; }
+.screen-content {
+  display: grid; grid-template-columns: 230px 1fr;
+  height: 380px; font-size: 11px;
+}
+.screen-sidebar { border-right: 1px solid var(--bd); padding: 14px; display: flex; flex-direction: column; gap: 12px; background: var(--screen-sidebar-bg); }
+.screen-main { padding: 18px; overflow: hidden; }
+.screen-row { height: 12px; border-radius: 6px; background: var(--row-bg); margin-bottom: 7px; }
+.screen-row.accent { background: rgba(99,102,241,0.15); }
+.screen-row.green { background: rgba(74,222,128,0.12); }
+.screen-row.sm { width: 65%; }
+.screen-row.xs { width: 40%; }
+.screen-row.md { width: 80%; }
+.screen-msg {
+  display: flex; gap: 8px; align-items: flex-start; margin-bottom: 10px;
+}
+.screen-avatar { width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0; }
+.screen-bubble { flex: 1; }
+.screen-name { height: 8px; width: 50px; border-radius: 4px; background: var(--name-bg); margin-bottom: 6px; }
+.screen-text { height: 10px; border-radius: 5px; background: var(--text-bg); }
+.screen-text.w80 { width: 80%; }
+.screen-text.w60 { width: 60%; }
+.screen-claude {
+  background: rgba(99,102,241,0.08); border: 1px solid rgba(99,102,241,0.15);
+  border-radius: 8px; padding: 10px; margin-bottom: 10px;
+}
+.pulse-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: #ef4444;
+  animation: pulse-anim 1.5s ease infinite;
+  display: inline-block;
+}
+@keyframes pulse-anim {
+  0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+  50%      { box-shadow: 0 0 0 5px rgba(239,68,68,0); }
+}
+
+/* ── STEPS ────────────────────────────────────────────────── */
+.steps { display: flex; flex-direction: column; gap: 0; margin-top: 56px; }
+.step {
+  display: grid; grid-template-columns: 60px 1fr;
+  gap: 0 28px; align-items: flex-start;
+  padding-bottom: 48px; position: relative;
+}
+.step:last-child { padding-bottom: 0; }
+.step-num-col { display: flex; flex-direction: column; align-items: center; }
+.step-num {
+  width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 800; position: relative; z-index: 1;
+}
+.step-line { width: 2px; flex: 1; min-height: 40px; margin-top: 4px; }
+.step:last-child .step-line { display: none; }
+.step-body { padding-top: 8px; }
+.step h3 { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+.step p { font-size: 14px; color: var(--t2); line-height: 1.7; }
+.step-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+.step-tag {
+  font-size: 11px; padding: 3px 10px; border-radius: 6px;
+  border: 1px solid var(--bd2); color: var(--t3);
+}
+
+/* ── FEATURE GRID ─────────────────────────────────────────── */
+.feat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-top: 48px; }
+.feat-card {
+  background: var(--card); border: 1px solid var(--bd);
+  border-radius: var(--r2); padding: 24px; position: relative;
+  overflow: hidden; transition: border-color .2s, transform .2s;
+}
+.feat-card:hover { border-color: var(--bd2); transform: translateY(-3px); }
+.feat-card::before {
+  content: ''; position: absolute; inset: 0;
+  background: var(--card-glow, transparent); opacity: .4; pointer-events: none;
+}
+.feat-icon {
+  width: 42px; height: 42px; border-radius: 11px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 19px; margin-bottom: 14px;
+}
+.feat-card h3 { font-size: 15px; margin-bottom: 6px; }
+.feat-card p { font-size: 13px; color: var(--t2); line-height: 1.65; }
+.feat-tag {
+  display: inline-block; font-size: 10px; font-weight: 600; letter-spacing: .05em;
+  text-transform: uppercase; padding: 3px 8px; border-radius: 6px;
+  margin-top: 14px;
+}
+
+/* ── AUTO FEATURES ─────────────────────────────────────────── */
+.auto-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-top: 48px; }
+.auto-card {
+  background: var(--card); border: 1px solid var(--bd);
+  border-radius: var(--r); padding: 18px 20px;
+  display: flex; align-items: flex-start; gap: 14px;
+}
+.auto-icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
+.auto-card h3 { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+.auto-card p { font-size: 12px; color: var(--t2); line-height: 1.6; }
+
+/* ── INSTALL ─────────────────────────────────────────────── */
+.install-tabs { display: flex; gap: 4px; margin-bottom: 28px; }
+.itab {
+  padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  cursor: pointer; border: 1px solid var(--bd); color: var(--t2);
+  background: var(--btn-ghost-bg); transition: all .15s;
+}
+.itab.active { background: var(--acc2); color: #fff; border-color: var(--acc2); }
+.install-panel { display: none; }
+.install-panel.active { display: block; }
+.install-steps { display: flex; flex-direction: column; gap: 16px; }
+.install-step {
+  display: flex; gap: 16px; align-items: flex-start;
+  background: var(--card); border: 1px solid var(--bd);
+  border-radius: var(--r); padding: 18px;
+}
+.install-step-num {
+  width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 800; background: rgba(99,102,241,0.2); color: var(--acc);
+}
+.install-step h4 { font-size: 14px; font-weight: 700; margin-bottom: 6px; color: var(--t1); }
+.install-step p { font-size: 13px; color: var(--t2); line-height: 1.6; }
+.code-block {
+  background: var(--code-bg); border: 1px solid var(--bd2);
+  border-radius: 8px; padding: 12px 16px; margin-top: 10px;
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-size: 13px; color: var(--code-c); overflow-x: auto;
+  white-space: pre;
+}
+.code-block .comment { color: var(--code-comment); }
+.code-block .cmd { color: var(--code-cmd); }
+.code-block .arg { color: var(--code-arg); }
+
+/* ── TIPS ────────────────────────────────────────────────── */
+.tips-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-top: 48px; }
+.tip-card {
+  background: var(--card); border: 1px solid var(--bd);
+  border-radius: var(--r); padding: 18px 20px;
+}
+.tip-card h3 { font-size: 13px; color: var(--t2); font-weight: 600; margin-bottom: 10px; text-transform: uppercase; letter-spacing: .05em; }
+.tip-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--bd); }
+.tip-row:last-child { border-bottom: none; }
+.tip-row span { font-size: 13px; color: var(--t2); }
+kbd {
+  background: var(--card2); border: 1px solid var(--bd2);
+  border-radius: 5px; padding: 2px 8px; font-size: 11px;
+  font-family: ui-monospace, monospace; color: var(--t1);
+}
+.tip-example {
+  background: var(--tip-ex-bg); border: 1px solid var(--bd);
+  border-radius: 8px; padding: 12px 14px; margin-top: 10px;
+  font-size: 12px; color: var(--t2); line-height: 1.8;
+}
+.tip-example .q { color: var(--acc); }
+
+/* ── FLOW ────────────────────────────────────────────────── */
+.flow-wrap { display: flex; flex-direction: column; gap: 0; margin-top: 56px; }
+.flow-row { display: flex; align-items: stretch; gap: 0; }
+.flow-node {
+  flex: 1; background: var(--card); border: 1px solid var(--bd);
+  border-radius: var(--r); padding: 20px; text-align: center;
+}
+.flow-node .icon { font-size: 28px; margin-bottom: 8px; }
+.flow-node h4 { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+
+/* 플로우 노드 색상 — 다크 */
+.fn-indigo { border-color:rgba(99,102,241,0.3); background:rgba(99,102,241,0.05); }
+.fn-teal   { border-color:rgba(45,212,191,0.3);  background:rgba(45,212,191,0.05); }
+.fn-pink   { border-color:rgba(244,114,182,0.3); background:rgba(244,114,182,0.05); }
+.fn-yellow { border-color:rgba(251,191,36,0.3);  background:rgba(251,191,36,0.05); }
+.fn-green  { border-color:rgba(74,222,128,0.3);  background:rgba(74,222,128,0.05); }
+.fn-mic     { color: #a5b4fc; }
+.fn-whisper { color: #5eead4; }
+.fn-speaker { color: #f9a8d4; }
+.fn-claude  { color: #fcd34d; }
+.fn-doc     { color: #86efac; }
+
+/* 플로우 노드 색상 — 라이트 */
+[data-theme="light"] .fn-indigo { border-color:rgba(99,102,241,0.25); background:rgba(99,102,241,0.06); }
+[data-theme="light"] .fn-teal   { border-color:rgba(13,148,136,0.25);  background:rgba(13,148,136,0.06); }
+[data-theme="light"] .fn-pink   { border-color:rgba(219,39,119,0.22);  background:rgba(219,39,119,0.05); }
+[data-theme="light"] .fn-yellow { border-color:rgba(161,98,7,0.25);    background:rgba(161,98,7,0.05); }
+[data-theme="light"] .fn-green  { border-color:rgba(21,128,61,0.25);   background:rgba(21,128,61,0.05); }
+[data-theme="light"] .fn-mic     { color: #4338ca; }
+[data-theme="light"] .fn-whisper { color: #0f766e; }
+[data-theme="light"] .fn-speaker { color: #9d174d; }
+[data-theme="light"] .fn-claude  { color: #a16207; }
+[data-theme="light"] .fn-doc     { color: #15803d; }
+.flow-node p { font-size: 12px; color: var(--t2); line-height: 1.5; }
+.flow-arrow {
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 10px; font-size: 18px; color: var(--t3);
+}
+.flow-down {
+  display: flex; justify-content: center; align-items: center;
+  padding: 10px 0; font-size: 18px; color: var(--t3);
+}
+
+/* ── FAQ ────────────────────────────────────────────────── */
+.faq-item {
+  background: var(--card); border: 1px solid var(--bd); border-radius: var(--r2);
+  overflow: hidden;
+}
+.faq-q {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 22px; background: none; border: none; cursor: pointer;
+  font-size: 15px; font-weight: 600; color: var(--t1); text-align: left; gap: 12px;
+  transition: background .15s;
+}
+.faq-q:hover { background: var(--card2); }
+.faq-arrow {
+  flex-shrink: 0; font-size: 22px; color: var(--t3); line-height: 1;
+  transition: transform .2s; display: block;
+}
+.faq-item.open .faq-arrow { transform: rotate(90deg); }
+.faq-a {
+  display: none; padding: 0 22px 18px; font-size: 14px; color: var(--t2); line-height: 1.8;
+  border-top: 1px solid var(--bd);
+}
+.faq-a p:first-child { margin-top: 14px; }
+.faq-item.open .faq-a { display: block; }
+
+/* ── CTA ────────────────────────────────────────────────── */
+#cta {
+  background: radial-gradient(ellipse 80% 100% at 50% 100%, rgba(99,102,241,0.2) 0%, transparent 70%), var(--bg);
+  text-align: center; padding: 96px 0;
+}
+.cta-box {
+  background: var(--card); border: 1px solid var(--bd2);
+  border-radius: 24px; padding: 56px 40px; max-width: 680px; margin: 0 auto;
+  position: relative; overflow: hidden;
+}
+.cta-box::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(99,102,241,0.1), transparent);
+}
+
+/* ── FOOTER ─────────────────────────────────────────────── */
+footer {
+  background: var(--surface); border-top: 1px solid var(--bd);
+  padding: 32px; text-align: center;
+  font-size: 13px; color: var(--t3);
+}
+
+/* ── RESPONSIVE ──────────────────────────────────────────── */
+@media (max-width: 700px) {
+  .screen-content { grid-template-columns: 1fr; }
+  .screen-sidebar { display: none; }
+  nav .nav-links { display: none; }
+  .flow-arrow { display: none; }
+  .flow-row { flex-direction: column; gap: 10px; }
+}
+
+/* ── DIVIDER ─────────────────────────────────────────────── */
+.divider { height: 1px; background: var(--bd); margin: 0; }
+
+/* ── HIGHLIGHT ───────────────────────────────────────────── */
+.hl-blue   { color: #7dd3fc; }
+.hl-green  { color: var(--green); }
+.hl-yellow { color: var(--yellow); }
+.hl-acc    { color: var(--acc); }
+.hl-teal   { color: var(--teal); }
+.hl-pink   { color: var(--pink); }
+
+/* ── 라이트 모드 추가 오버라이드 ──────────────────────────── */
+[data-theme="light"] .screen-frame {
+  box-shadow: 0 20px 60px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.06);
+}
+[data-theme="light"] #hero {
+  background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(99,102,241,0.1) 0%, transparent 70%), var(--bg);
+}
+[data-theme="light"] #cta {
+  background: radial-gradient(ellipse 80% 100% at 50% 100%, rgba(99,102,241,0.08) 0%, transparent 70%), var(--bg);
+}
+[data-theme="light"] .feat-card { box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+[data-theme="light"] .auto-card { box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+[data-theme="light"] .install-step { box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+[data-theme="light"] .cta-box { box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+[data-theme="light"] .screen-content { background: #f8f8fc; }
+[data-theme="light"] .tip-card { box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+
+/* 라이트모드 컴포넌트 override */
+[data-theme="light"] .badge {
+  color: #4338ca;
+  background: rgba(99,102,241,0.10);
+  border-color: rgba(99,102,241,0.35);
+}
+[data-theme="light"] .btn-hero-ghost {
+  background: rgba(0,0,0,0.06);
+  border-color: rgba(0,0,0,0.22);
+  color: var(--t1);
+}
+[data-theme="light"] .btn-hero-ghost:hover { background: rgba(0,0,0,0.11); }
+[data-theme="light"] nav .nav-links a { color: var(--t2); }
+[data-theme="light"] nav .nav-links a:hover { background: rgba(0,0,0,0.07); color: var(--t1); }
+[data-theme="light"] .nav-readme-btn {
+  color: var(--t2);
+  background: var(--btn-ghost-bg);
+  border-color: var(--btn-ghost-bd);
+}
+[data-theme="light"] .nav-readme-btn:hover { color: var(--t1); background: rgba(0,0,0,0.11); }
+[data-theme="light"] .theme-toggle { color: var(--t2); }
+[data-theme="light"] .theme-toggle:hover { color: var(--t1); background: rgba(0,0,0,0.07); }
+[data-theme="light"] .itab:not(.active) {
+  color: var(--t1);
+  background: rgba(0,0,0,0.05);
+  border-color: rgba(0,0,0,0.18);
+}
+[data-theme="light"] .itab:not(.active):hover { background: rgba(0,0,0,0.09); }
+[data-theme="light"] .readme-close { color: var(--t2); }
+[data-theme="light"] .faq-q { color: var(--t1); }
+[data-theme="light"] .step-tag { color: var(--t2); border-color: rgba(0,0,0,0.18); }
+
+/* ── README NAV 버튼 ─────────────────────────────────── */
+.nav-readme-btn {
+  font-size: 13px; color: var(--t3); padding: 5px 12px; border-radius: 7px;
+  background: none; border: 1px solid var(--bd2); cursor: pointer;
+  transition: all .15s; display: flex; align-items: center; gap: 5px;
+  margin-left: 4px; line-height: 1;
+}
+.nav-readme-btn:hover { color: var(--t1); background: var(--btn-ghost-bg); border-color: var(--bd2); }
+
+/* ── README 드로어 ─────────────────────────────────────── */
+.readme-overlay {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(0,0,0,0.65);
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s;
+}
+.readme-overlay.open { opacity: 1; pointer-events: all; }
+.readme-drawer {
+  position: absolute; top: 0; right: 0; bottom: 0;
+  width: min(960px, 100vw);
+  background: var(--surface); border-left: 1px solid var(--bd2);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+  transform: translateX(100%);
+  transition: transform .3s cubic-bezier(0.4,0,0.2,1);
+}
+.readme-overlay.open .readme-drawer { transform: translateX(0); }
+.readme-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 24px; border-bottom: 1px solid var(--bd);
+  background: var(--card);
+  min-height: 0;
+}
+.readme-hdr-left { display: flex; align-items: center; gap: 10px; }
+.readme-hdr-title { font-size: 15px; font-weight: 700; color: var(--t1); }
+.readme-hdr-sub { font-size: 12px; color: var(--t3); }
+.readme-close {
+  background: var(--btn-ghost-bg); border: 1px solid var(--bd2);
+  color: var(--t2); width: 30px; height: 30px; border-radius: 7px;
+  cursor: pointer; font-size: 15px; display: flex; align-items: center;
+  justify-content: center; transition: all .15s;
+}
+.readme-close:hover { color: var(--t1); }
+.readme-body {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.readme-content {
+  padding: 32px 36px 48px;
+  font-size: 14px; line-height: 1.75;
+  max-width: 860px; margin: 0 auto;
+}
+.rm-toc-inline {
+  background: var(--card); border: 1px solid var(--bd); border-radius: 12px;
+  padding: 20px 24px; margin-bottom: 40px;
+}
+.rm-toc-title {
+  font-size: 10px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--t3); margin-bottom: 14px;
+}
+.rm-toc-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 12px;
+}
+.rm-toc-grid a {
+  display: block; padding: 5px 8px; border-radius: 6px; font-size: 13px;
+  color: var(--t2); transition: all .12s; line-height: 1.4;
+}
+.rm-toc-grid a:hover { color: var(--acc); background: rgba(99,102,241,0.08); }
+.readme-content section { margin-bottom: 48px; }
+.readme-content section:last-child { margin-bottom: 0; }
+.readme-content h2 {
+  font-size: 20px; font-weight: 700; color: var(--t1); margin: 0 0 14px;
+  padding-bottom: 10px; border-bottom: 1px solid var(--bd); display: flex; align-items: center; gap: 8px;
+}
+.readme-content h3 { font-size: 14px; font-weight: 700; color: var(--t2); margin: 18px 0 8px; }
+.readme-content p { color: var(--t2); margin-bottom: 10px; }
+.readme-content strong { color: var(--t1); font-weight: 600; }
+.readme-content em { font-style: italic; }
+.rm-code {
+  background: var(--card2); border: 1px solid var(--bd); border-radius: 4px;
+  padding: 1px 6px; font-family: ui-monospace,'SF Mono',Consolas,monospace;
+  font-size: 12px; color: var(--code-c);
+}
+.rm-pre {
+  background: var(--code-bg); border: 1px solid var(--bd2); border-radius: 8px;
+  padding: 13px 16px; overflow-x: auto; margin: 8px 0 12px;
+  font-family: ui-monospace,'SF Mono',Consolas,monospace;
+  font-size: 12px; color: var(--code-c); white-space: pre;
+}
+.rm-note {
+  background: rgba(99,102,241,0.07); border-left: 3px solid rgba(99,102,241,0.5);
+  border-radius: 0 8px 8px 0; padding: 11px 16px; margin: 10px 0;
+  font-size: 13px; color: var(--t2); line-height: 1.6;
+}
+.rm-note strong { color: var(--acc); }
+.rm-warn {
+  background: rgba(251,191,36,0.07); border-left: 3px solid rgba(251,191,36,0.5);
+  border-radius: 0 8px 8px 0; padding: 11px 16px; margin: 10px 0;
+  font-size: 13px; color: var(--t2);
+}
+.rm-file-groups { display: flex; flex-direction: column; gap: 14px; }
+.rm-file-group { background: var(--card); border: 1px solid var(--bd); border-radius: 12px; overflow: hidden; }
+.rm-group-label {
+  font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  padding: 7px 16px; border-bottom: 1px solid var(--bd);
+}
+.rm-file-list { display: flex; flex-direction: column; }
+.rm-file-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 16px; border-bottom: 1px solid var(--bd); font-size: 13px;
+  transition: background .1s;
+}
+.rm-file-item:last-child { border-bottom: none; }
+.rm-file-item:hover { background: var(--row-bg); }
+.rm-file-os {
+  flex-shrink: 0; font-size: 10px; font-weight: 600; padding: 2px 7px;
+  border-radius: 5px; border: 1px solid rgba(74,222,128,0.2);
+  background: rgba(74,222,128,0.08); color: #86efac;
+}
+.rfg-win { color: #93c5fd; background: rgba(59,130,246,0.1); border-color: rgba(59,130,246,0.2); }
+.rm-file-desc { color: var(--t2); font-size: 12px; }
+
+/* 그룹 라벨 — 다크 모드 */
+.rfg-run { color:#86efac; border-color:rgba(74,222,128,0.25); background:rgba(74,222,128,0.07); }
+.rfg-core { color:#a5b4fc; border-color:rgba(99,102,241,0.25); background:rgba(99,102,241,0.07); }
+.rfg-auto { color:#fde68a; border-color:rgba(251,191,36,0.25); background:rgba(251,191,36,0.07); }
+.rfg-cfg { color:#f9a8d4; border-color:rgba(244,114,182,0.25); background:rgba(244,114,182,0.07); }
+
+/* 그룹 라벨 — 라이트 모드 */
+[data-theme="light"] .rfg-run  { color:#15803d; border-color:rgba(21,128,61,0.25);  background:rgba(21,128,61,0.07); }
+[data-theme="light"] .rfg-core { color:#4338ca; border-color:rgba(67,56,202,0.25);  background:rgba(67,56,202,0.07); }
+[data-theme="light"] .rfg-auto { color:#a16207; border-color:rgba(161,98,7,0.25);   background:rgba(161,98,7,0.07); }
+[data-theme="light"] .rfg-cfg  { color:#9d174d; border-color:rgba(157,23,77,0.25);  background:rgba(157,23,77,0.07); }
+[data-theme="light"] .rm-file-os { color:#15803d; border-color:rgba(21,128,61,0.25); background:rgba(21,128,61,0.08); }
+[data-theme="light"] .rfg-win { color:#1d4ed8; background:rgba(29,78,216,0.08); border-color:rgba(29,78,216,0.2); }
+.rm-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 10px 0 14px; table-layout: auto; }
+.rm-table th {
+  padding: 9px 14px; text-align: left; color: var(--t3); font-weight: 600;
+  font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+  background: var(--row-bg); border-bottom: 1px solid var(--bd);
+  white-space: nowrap;
+}
+.rm-table td {
+  padding: 9px 14px; color: var(--t2); border-bottom: 1px solid var(--bd);
+  vertical-align: top; word-break: keep-all;
+}
+.rm-table tr:last-child td { border-bottom: none; }
+.rm-table tr:hover td { background: var(--row-bg); }
+.rm-table td strong { color: var(--t1); }
+.rm-table td .rm-code { font-size: 11px; }
+.rm-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 5px;
+  font-size: 11px; font-weight: 600;
+}
+@media (max-width: 700px) {
+  .readme-content { padding: 20px; }
+  .rm-toc-grid { grid-template-columns: repeat(2, 1fr); }
+}
+[data-theme="light"] .readme-content .rm-pre { background: #1e1e2e; }
+[data-theme="light"] .readme-hdr { box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ NAV ═══════════════ -->
+<nav>
+  <div class="nav-logo">
+    <div class="dot"></div>
+    AI 회의 어시스턴트
+  </div>
+  <div style="display:flex;align-items:center">
+    <div class="nav-links">
+      <a href="#overview">개요</a>
+      <a href="#setup">AI 설정</a>
+      <a href="#install">설치</a>
+      <a href="#features">기능</a>
+      <a href="#usage">사용법</a>
+      <a href="#auto">자동 기능</a>
+      <a href="#tips">팁</a>
+      <a href="#faq">FAQ</a>
+    </div>
+    <button class="nav-readme-btn" onclick="openReadme()" title="README 전체 문서 보기">📄 README</button>
+    <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" title="다크/라이트 전환">🌙</button>
+  </div>
+</nav>
+
+<!-- ═══════════════ HERO ═══════════════ -->
+<section id="hero">
+  <div class="container">
+    <div class="badge">
+      <span>🎙</span> AI-Powered Meeting Assistant
+    </div>
+    <h1>회의를 기록하고<br>AI가 분석합니다</h1>
+    <p class="sub">마이크 음성을 실시간으로 전사하고, 화자를 식별하고, Claude AI가 교정·요약·자동 개입까지 처리하는 로컬 회의 기록 시스템입니다.</p>
+    <div class="hero-btns">
+      <a href="#setup" class="btn-hero btn-hero-primary">🤖 AI 설정 시작하기</a>
+      <a href="#features" class="btn-hero btn-hero-ghost">기능 살펴보기 →</a>
+    </div>
+    <div class="tech-pills">
+      <span class="tech-pill">Whisper large-v3-turbo</span>
+      <span class="tech-pill">resemblyzer 화자 식별</span>
+      <span class="tech-pill">Claude AI 분석</span>
+      <span class="tech-pill">webrtcvad</span>
+      <span class="tech-pill">Flask + SSE</span>
+      <span class="tech-pill">로컬 실행 · 개인정보 보호</span>
+    </div>
+
+    <!-- UI 미리보기 -->
+    <div class="screen-preview">
+      <div class="screen-frame">
+        <div class="screen-titlebar">
+          <div class="screen-dot" style="background:#ff5f57"></div>
+          <div class="screen-dot" style="background:#febc2e"></div>
+          <div class="screen-dot" style="background:#28c840"></div>
+          <div style="flex:1;text-align:center;font-size:11px;color:#6b6b7e;font-family:monospace">http://localhost:5555</div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:#6b6b7e">
+            <span class="pulse-dot"></span> 녹음 중
+          </div>
+        </div>
+        <div class="screen-content">
+          <div class="screen-sidebar">
+            <div>
+              <div class="screen-row xs" style="height:8px;margin-bottom:10px"></div>
+              <div class="screen-row" style="height:28px;border-radius:7px;background:rgba(99,102,241,0.2)"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:5px">
+              <div class="screen-row sm" style="height:8px"></div>
+              <div class="screen-row" style="height:24px;border-radius:6px;background:rgba(239,68,68,0.15)"></div>
+              <div style="display:flex;gap:4px">
+                <div style="flex:1;height:22px;border-radius:6px;background:rgba(251,191,36,0.1)"></div>
+                <div style="flex:1;height:22px;border-radius:6px;background:var(--row-bg)"></div>
+              </div>
+            </div>
+            <div>
+              <div class="screen-row xs" style="height:8px;margin-bottom:8px"></div>
+              <div style="height:52px;border-radius:7px;background:var(--row-bg);border:1px solid var(--bd)"></div>
+              <div style="margin-top:6px;height:26px;border-radius:7px;background:rgba(74,222,128,0.12)"></div>
+            </div>
+          </div>
+          <div class="screen-main">
+            <div class="screen-msg">
+              <div class="screen-avatar" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)"></div>
+              <div class="screen-bubble">
+                <div class="screen-name"></div>
+                <div class="screen-text w80"></div>
+                <div class="screen-text w60" style="margin-top:4px"></div>
+              </div>
+            </div>
+            <div class="screen-msg">
+              <div class="screen-avatar" style="background:linear-gradient(135deg,#0ea5e9,#2dd4bf)"></div>
+              <div class="screen-bubble">
+                <div class="screen-name"></div>
+                <div class="screen-text" style="width:90%"></div>
+              </div>
+            </div>
+            <div class="screen-claude">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+                <div style="width:16px;height:16px;border-radius:4px;background:rgba(99,102,241,0.4)"></div>
+                <div style="height:8px;width:90px;border-radius:4px;background:rgba(99,102,241,0.3)"></div>
+              </div>
+              <div class="screen-row" style="height:8px;background:rgba(165,180,252,0.12)"></div>
+              <div class="screen-row sm" style="height:8px;background:rgba(165,180,252,0.08);margin-top:5px"></div>
+            </div>
+            <div class="screen-msg">
+              <div class="screen-avatar" style="background:linear-gradient(135deg,#f59e0b,#f97316)"></div>
+              <div class="screen-bubble">
+                <div class="screen-name"></div>
+                <div class="screen-text w80"></div>
+              </div>
+            </div>
+            <div style="margin-top:4px;display:flex;align-items:center;gap:8px">
+              <div style="height:1px;flex:1;background:rgba(234,179,8,0.15)"></div>
+              <div style="height:16px;width:100px;border-radius:999px;background:rgba(234,179,8,0.1);border:1px solid rgba(234,179,8,0.2)"></div>
+              <div style="height:1px;flex:1;background:rgba(234,179,8,0.15)"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ OVERVIEW ═══════════════ -->
+<section id="overview" style="background:var(--surface)">
+  <div class="container">
+    <div class="sec-label">시스템 개요</div>
+    <h2 class="sec-title">어떻게 동작하나요?</h2>
+    <p class="sec-desc">마이크 → 전사 → 화자 식별 → AI 분석까지 모든 처리가 여러분의 컴퓨터 안에서 완결됩니다.</p>
+
+    <div class="flow-wrap">
+      <div class="flow-row">
+        <div class="flow-node fn-indigo">
+          <div class="icon">🎤</div>
+          <h4 class="fn-mic">마이크 캡처</h4>
+          <p>sounddevice<br>16kHz · 멀티 마이크 지원</p>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node fn-teal">
+          <div class="icon">📝</div>
+          <h4 class="fn-whisper">Whisper 전사</h4>
+          <p>large-v3-turbo<br>한국어 · 영어 · 일본어</p>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node fn-pink">
+          <div class="icon">👤</div>
+          <h4 class="fn-speaker">화자 식별</h4>
+          <p>resemblyzer<br>코사인 유사도 임베딩</p>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node fn-yellow">
+          <div class="icon">🤖</div>
+          <h4 class="fn-claude">Claude AI</h4>
+          <p>교정 · 요약 · 개입<br>Asana 연동</p>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node fn-green">
+          <div class="icon">📄</div>
+          <h4 class="fn-doc">회의록 저장</h4>
+          <p>Markdown 파일<br>Obsidian 호환</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 핵심 스펙 -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-top:56px">
+      <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:20px;text-align:center">
+        <div style="font-size:28px;font-weight:800;color:var(--acc);line-height:1">1.5s</div>
+        <div style="font-size:12px;color:var(--t2);margin-top:4px">최소 전사 지연</div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:20px;text-align:center">
+        <div style="font-size:28px;font-weight:800;color:var(--teal);line-height:1">0.78</div>
+        <div style="font-size:12px;color:var(--t2);margin-top:4px">화자 매칭 임계값</div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:20px;text-align:center">
+        <div style="font-size:28px;font-weight:800;color:var(--yellow);line-height:1">90s</div>
+        <div style="font-size:12px;color:var(--t2);margin-top:4px">주제 변경 감지 주기</div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:20px;text-align:center">
+        <div style="font-size:28px;font-weight:800;color:var(--green);line-height:1">10m</div>
+        <div style="font-size:12px;color:var(--t2);margin-top:4px">품질 피드백 주기</div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:20px;text-align:center">
+        <div style="font-size:28px;font-weight:800;color:var(--pink);line-height:1">100</div>
+        <div style="font-size:12px;color:var(--t2);margin-top:4px">화자당 최대 프로파일</div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:20px;text-align:center">
+        <div style="font-size:28px;font-weight:800;color:var(--red);line-height:1">100%</div>
+        <div style="font-size:12px;color:var(--t2);margin-top:4px">로컬 처리 (외부 전송 없음)</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ AI 설정 (SETUP) ═══════════════ -->
+<section id="setup" style="background:var(--bg)">
+  <div class="container">
+    <div class="sec-label">AI 설정</div>
+    <h2 class="sec-title">Claude Code CLI + MCP 연결</h2>
+    <p class="sec-desc">AI 분석·자동 개입·Asana 연동은 Claude Code CLI 설치와 MCP 설정이 필요합니다.</p>
+
+    <!-- 왜 필요한가? 안내 박스 -->
+    <div style="background:rgba(99,102,241,0.08);border:2px solid rgba(99,102,241,0.28);border-radius:16px;padding:28px 32px;margin-bottom:40px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div style="width:36px;height:36px;border-radius:10px;background:rgba(99,102,241,0.2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🤖</div>
+        <div style="font-size:17px;font-weight:700;color:var(--t1)">AI 기능은 Claude CLI 없이 동작하지 않습니다</div>
+      </div>
+      <p style="font-size:14px;color:var(--t2);line-height:1.8;margin-bottom:20px">이 시스템의 핵심 가치인 STT 교정, 자동 개입, 회의 요약, 음성 트리거는 모두 <b style="color:var(--t1)">Claude Code CLI</b>를 subprocess로 호출해서 동작합니다. Claude CLI가 설치·인증되어 있지 않으면 전사는 되지만 AI 분석 기능 전체가 비활성화됩니다. <b style="color:var(--t1)">Claude Pro, Team, 또는 API 플랜</b>이 필요합니다.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:10px">
+        <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:10px 16px;font-size:13px">
+          <div style="color:#fca5a5;font-weight:600;margin-bottom:3px">❌ CLI 미설치 시</div>
+          <div style="color:var(--t2)">STT 교정 없음 · 요약 없음 · 자동 개입 없음</div>
+        </div>
+        <div style="background:rgba(74,222,128,0.06);border:1px solid rgba(74,222,128,0.2);border-radius:10px;padding:10px 16px;font-size:13px">
+          <div style="color:#86efac;font-weight:600;margin-bottom:3px">✅ CLI 설치 완료 시</div>
+          <div style="color:var(--t2)">모든 AI 기능 + MCP 연동 + 음성 트리거 사용 가능</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="install-tabs">
+      <button class="itab active" onclick="switchTab(this,'cli')">🤖 Claude Code CLI</button>
+      <button class="itab" onclick="switchTab(this,'mcp')">🔌 MCP 연결</button>
+      <button class="itab" onclick="switchTab(this,'obsidian')">📝 Obsidian 연동</button>
+    </div>
+
+    <!-- CLI 설치 -->
+    <div id="tab-cli" class="install-panel active">
+      <div class="install-steps">
+        <div class="install-step">
+          <div class="install-step-num">1</div>
+          <div>
+            <h4>Node.js 설치 확인</h4>
+            <p>Claude Code CLI는 npm으로 설치합니다. Node.js 18 이상이 필요합니다.</p>
+            <div class="code-block"><span class="cmd">node</span> <span class="arg">--version</span>   <span class="comment"># v18 이상 필요</span>
+<span class="comment"># 없으면: https://nodejs.org 에서 설치</span></div>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="install-step-num">2</div>
+          <div>
+            <h4>Claude Code CLI 설치</h4>
+            <div class="code-block"><span class="cmd">npm install -g</span> <span class="arg">@anthropic-ai/claude-code</span></div>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="install-step-num">3</div>
+          <div>
+            <h4>Anthropic 계정 인증</h4>
+            <p>처음 실행 시 브라우저가 열리면서 Anthropic 계정으로 로그인합니다. Claude Pro / Team / API 플랜이 필요합니다.</p>
+            <div class="code-block"><span class="cmd">claude</span>   <span class="comment"># 최초 실행 → 브라우저 인증</span></div>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="install-step-num">4</div>
+          <div>
+            <h4>설치 확인</h4>
+            <div class="code-block"><span class="cmd">claude</span> <span class="arg">--version</span>   <span class="comment"># 버전 출력되면 완료</span>
+<span class="cmd">claude</span> <span class="arg">-p "안녕"</span>  <span class="comment"># 응답 오면 정상 작동</span></div>
+            <p style="margin-top:8px;font-size:12px;color:var(--t3)">⚠️ UI 상단 🔧 버튼 → 시스템 상태에서 Claude CLI 연결 여부를 확인할 수 있습니다.</p>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--card);border:1px solid rgba(99,102,241,0.2);border-radius:var(--r2);padding:20px;margin-top:20px">
+        <div style="font-size:13px;font-weight:700;color:var(--acc);margin-bottom:12px">💡 Claude Code CLI가 하는 일</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;font-size:13px;color:var(--t2)">
+          <div>✏️ 매 발화마다 STT 오인식 자동 교정</div>
+          <div>📍 90초마다 주제 변경 감지</div>
+          <div>🤖 자동 개입 (담당자/마감일/요약)</div>
+          <div>📊 10분마다 회의 품질 피드백</div>
+          <div>🏁 회의 종료 시 전체 AI 분석</div>
+          <div>📋 시작 전 이전 회의 브리핑</div>
+          <div>🗣️ "헤이 클로드" 음성 트리거</div>
+          <div>🔍 시맨틱(의미 기반) 회의록 검색</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MCP 연결 -->
+    <div id="tab-mcp" class="install-panel">
+      <p style="font-size:14px;color:var(--t2);margin-bottom:24px;line-height:1.7">MCP(Model Context Protocol)는 Claude가 외부 서비스를 직접 호출할 수 있게 해주는 플러그인입니다. 회의 중 "<span style="color:var(--acc)">Asana에서 이재헌 담당 태스크 찾아줘</span>" 같은 요청을 처리합니다.</p>
+
+      <div class="install-steps">
+        <div class="install-step">
+          <div class="install-step-num">1</div>
+          <div>
+            <h4>MCP 설정 파일 위치 확인</h4>
+            <p>Claude Code의 MCP 서버는 <code style="color:var(--code-c)">~/.claude.json</code> 또는 프로젝트의 <code style="color:var(--code-c)">.claude/settings.json</code>에 정의합니다.</p>
+            <div class="code-block"><span class="comment"># 설정 파일 열기</span>
+<span class="cmd">cat</span> <span class="arg">~/.claude.json</span>   <span class="comment"># 전역 설정</span></div>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="install-step-num">2</div>
+          <div>
+            <h4>Asana MCP 연결 (태스크 생성·조회)</h4>
+            <div class="code-block"><span class="comment"># ~/.claude.json 에 추가</span>
+{
+  <span class="arg">"mcpServers"</span>: {
+    <span class="arg">"asana"</span>: {
+      <span class="arg">"command"</span>: <span class="cmd">"npx"</span>,
+      <span class="arg">"args"</span>: [<span class="cmd">"-y"</span>, <span class="arg">"@modelcontextprotocol/server-asana"</span>],
+      <span class="arg">"env"</span>: {
+        <span class="arg">"ASANA_ACCESS_TOKEN"</span>: <span class="cmd">"your_token_here"</span>
+      }
+    }
+  }
+}</div>
+            <p style="margin-top:8px;font-size:12px;color:var(--t3)">토큰 발급: app.asana.com/0/my-apps → Personal Access Token</p>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="install-step-num">3</div>
+          <div>
+            <h4>Slack MCP 연결 (채널 메시지 조회·전송)</h4>
+            <div class="code-block"><span class="arg">"slack"</span>: {
+  <span class="arg">"command"</span>: <span class="cmd">"npx"</span>,
+  <span class="arg">"args"</span>: [<span class="cmd">"-y"</span>, <span class="arg">"@modelcontextprotocol/server-slack"</span>],
+  <span class="arg">"env"</span>: {
+    <span class="arg">"SLACK_BOT_TOKEN"</span>: <span class="cmd">"xoxb-..."</span>,
+    <span class="arg">"SLACK_TEAM_ID"</span>: <span class="cmd">"T..."</span>
+  }
+}</div>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="install-step-num">4</div>
+          <div>
+            <h4>Google Calendar MCP (일정 조회·생성)</h4>
+            <div class="code-block"><span class="arg">"google-calendar"</span>: {
+  <span class="arg">"command"</span>: <span class="cmd">"npx"</span>,
+  <span class="arg">"args"</span>: [<span class="cmd">"-y"</span>, <span class="arg">"@anthropic-ai/mcp-server-google-calendar"</span>]
+  <span class="comment"># 첫 실행 시 OAuth 브라우저 인증</span>
+}</div>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="install-step-num">5</div>
+          <div>
+            <h4>MCP 연결 확인</h4>
+            <p>서버 재시작 후 회의 중 텍스트 입력창에서 테스트해보세요.</p>
+            <div class="code-block"><span class="comment"># 회의 중 입력 예시</span>
+Asana에서 내 담당 태스크 목록 보여줘
+다음 주 Google Calendar 일정 확인해줘
+#general 채널 오늘 메시지 확인해줘</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:var(--card);border:1px solid rgba(45,212,191,0.2);border-radius:var(--r2);padding:20px;margin-top:20px">
+        <div style="font-size:13px;font-weight:700;color:var(--teal);margin-bottom:12px">🔌 지원 MCP 서비스</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">
+          <div style="background:var(--card2);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;font-size:12px">
+            <div style="font-weight:600;color:var(--t1);margin-bottom:2px">Asana</div>
+            <div style="color:var(--t3)">태스크 생성·조회·담당자</div>
+          </div>
+          <div style="background:var(--card2);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;font-size:12px">
+            <div style="font-weight:600;color:var(--t1);margin-bottom:2px">Slack</div>
+            <div style="color:var(--t3)">채널 메시지·공유</div>
+          </div>
+          <div style="background:var(--card2);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;font-size:12px">
+            <div style="font-weight:600;color:var(--t1);margin-bottom:2px">Google Calendar</div>
+            <div style="color:var(--t3)">일정 조회·생성</div>
+          </div>
+          <div style="background:var(--card2);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;font-size:12px">
+            <div style="font-weight:600;color:var(--t1);margin-bottom:2px">Notion</div>
+            <div style="color:var(--t3)">페이지·데이터베이스</div>
+          </div>
+          <div style="background:var(--card2);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;font-size:12px">
+            <div style="font-weight:600;color:var(--t1);margin-bottom:2px">Gmail</div>
+            <div style="color:var(--t3)">메일 초안·검색</div>
+          </div>
+          <div style="background:var(--card2);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;font-size:12px">
+            <div style="font-weight:600;color:var(--t1);margin-bottom:2px">GitHub</div>
+            <div style="color:var(--t3)">이슈·PR 조회</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Obsidian 연동 -->
+    <div id="tab-obsidian" class="install-panel">
+      <div class="install-steps">
+        <div class="install-step">
+          <div class="install-step-num">1</div>
+          <div>
+            <h4>Obsidian Vault 경로 확인</h4>
+            <p>Obsidian을 열고 <b>설정 → 파일 및 링크</b>에서 Vault 루트 폴더 경로를 복사합니다.</p>
+            <div class="code-block"><span class="comment"># 예시 경로 (macOS)</span>
+/Users/yourname/Documents/obsidian-vault</div>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="install-step-num">2</div>
+          <div>
+            <h4>AI 회의 어시스턴트 설정</h4>
+            <p>웹 UI 상단 <b>⚙️ 설정</b> 버튼 → <b>Obsidian Vault 경로</b>에 붙여넣습니다.</p>
+            <div style="background:var(--card2);border:1px solid var(--bd);border-radius:8px;padding:12px;margin-top:10px;font-size:12px;color:var(--t2)">
+              <div style="margin-bottom:6px"><b style="color:var(--t1)">Vault 경로:</b> /Users/yourname/Documents/obsidian-vault</div>
+              <div><b style="color:var(--t1)">서브폴더:</b> 회의록 (비워두면 vault 루트에 저장)</div>
+            </div>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="install-step-num">3</div>
+          <div>
+            <h4>회의 종료 시 자동 복사</h4>
+            <p><b>■ 종료 + AI 요약 생성</b> 버튼을 누르면 회의록이 <code style="color:var(--code-c)">meetings/</code> 폴더에 저장되는 동시에 Obsidian vault의 서브폴더에 자동으로 복사됩니다.</p>
+            <div class="code-block"><span class="comment"># 저장 위치 예시</span>
+meetings/meeting_20260407_143022.md  <span class="comment"># 로컬</span>
+obsidian-vault/회의록/meeting_20260407_143022.md  <span class="comment"># Obsidian</span></div>
+            <p style="margin-top:8px;font-size:12px;color:var(--t3)">파일 형식: YAML frontmatter (날짜·참여자·태그) + Obsidian Callout 블록 호환</p>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="install-step-num">4</div>
+          <div>
+            <h4>Obsidian 추천 플러그인</h4>
+            <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px;font-size:13px;color:var(--t2)">
+              <div><b style="color:var(--t1)">Dataview</b> — YAML frontmatter 기반 회의록 테이블 자동 생성</div>
+              <div><b style="color:var(--t1)">Calendar</b> — 날짜별 회의록 캘린더 뷰</div>
+              <div><b style="color:var(--t1)">Tag Wrangler</b> — 회의 태그 일괄 관리</div>
+              <div><b style="color:var(--t1)">Templater</b> — 회의록 커스텀 템플릿 추가 적용</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ INSTALL ═══════════════ -->
+<section id="install" style="background:var(--surface)">
+  <div class="container">
+    <div class="sec-label">설치</div>
+    <h2 class="sec-title">5분 안에 시작하기</h2>
+    <p class="sec-desc">더블클릭 한 번으로 모든 의존성을 자동 설치합니다.</p>
+
+    <div class="install-tabs">
+      <button class="itab active" onclick="switchTab(this,'mac')">🍎 macOS</button>
+      <button class="itab" onclick="switchTab(this,'win')">🪟 Windows</button>
+      <button class="itab" onclick="switchTab(this,'req')">📦 필수 패키지</button>
+    </div>
+
+    <!-- macOS -->
+    <div id="tab-mac" class="install-panel active">
+      <div class="install-steps">
+        <div class="install-step">
+          <div class="install-step-num">1</div>
+          <div>
+            <h4>프로젝트 폴더 다운로드</h4>
+            <p>meeting_assistant_final 폴더를 원하는 위치에 저장합니다.</p>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="install-step-num">2</div>
+          <div>
+            <h4><code style="color:var(--acc)">install.command</code> 더블클릭</h4>
+            <p>처음 실행 시 macOS 보안 경고가 나타날 수 있습니다. <b>시스템 환경설정 → 개인 정보 보호 및 보안</b>에서 "허용"을 클릭하세요.</p>
+            <p style="margin-top:8px">자동으로 설치되는 항목:</p>
+            <div class="code-block"><span class="comment"># Homebrew → portaudio 설치</span>
+<span class="cmd">brew install</span> <span class="arg">portaudio</span>
+
+<span class="comment"># Python 패키지 설치</span>
+<span class="cmd">pip3 install</span> <span class="arg">flask faster-whisper sounddevice numpy</span>
+<span class="cmd">pip3 install</span> <span class="arg">resemblyzer webrtcvad pynput send2trash</span>
+<span class="cmd">pip3 install</span> <span class="arg">cryptography qrcode[pil]</span>
+
+<span class="comment"># Whisper 모델 다운로드 (~1.6GB)</span>
+<span class="comment"># large-v3-turbo 자동 캐시</span></div>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="install-step-num">3</div>
+          <div>
+            <h4>Claude CLI 설치 (AI 기능 필수)</h4>
+            <p>회의록 교정·요약·자동 개입 기능을 사용하려면 <b>Claude Code CLI</b>가 필요합니다. 위 AI 설정 섹션을 먼저 완료하세요.</p>
+            <div class="code-block"><span class="cmd">npm install -g</span> <span class="arg">@anthropic-ai/claude-code</span>
+<span class="cmd">claude</span>   <span class="comment"># 최초 인증</span></div>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="install-step-num">4</div>
+          <div>
+            <h4>마이크 접근 권한 허용</h4>
+            <p>처음 실행하면 macOS가 마이크 접근을 차단합니다. 아래 경로에서 허용해야 음성이 잡힙니다.</p>
+            <div style="background:var(--card2);border:1px solid rgba(251,191,36,0.25);border-radius:8px;padding:12px 16px;margin-top:10px;font-size:13px;color:var(--t2);line-height:1.8">
+              <b style="color:var(--yellow)">⚠️ 시스템 설정 → 개인 정보 보호 및 보안 → 마이크</b><br>
+              목록에서 <b style="color:var(--t1)">Terminal</b> 또는 <b style="color:var(--t1)">Python</b> 옆 토글을 켜세요.<br>
+              <span style="font-size:12px;color:var(--t3)">허용 후 start.command를 다시 실행해야 적용됩니다.</span>
+            </div>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="install-step-num">5</div>
+          <div>
+            <h4><code style="color:var(--acc)">start.command</code> 더블클릭</h4>
+            <p>브라우저가 자동으로 열리며 <b>http://localhost:5555</b>로 접속됩니다.</p>
+            <div style="background:var(--card2);border:1px solid var(--bd);border-radius:8px;padding:12px 16px;margin-top:10px">
+              <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:8px">🔒 HTTPS로 접속하려면</div>
+              <p style="font-size:12px;color:var(--t2);margin-bottom:8px">모바일 접속 또는 보안 연결이 필요한 경우 아래 두 가지 방법 중 선택하세요.</p>
+              <div style="font-size:12px;color:var(--t3);margin-bottom:4px">방법 1 — 터미널에서 직접</div>
+              <div class="code-block" style="margin-bottom:8px"><span class="cmd">HTTPS=1</span> <span class="cmd">python3</span> <span class="arg">server.py</span></div>
+              <div style="font-size:12px;color:var(--t3);margin-bottom:4px">방법 2 — start.command 마지막 줄 변경 (항상 HTTPS)</div>
+              <div class="code-block"><span class="comment"># python3 server.py  ← 이 줄을 아래로 교체</span>
+<span class="cmd">HTTPS=1</span> <span class="cmd">python3</span> <span class="arg">server.py</span></div>
+              <p style="font-size:11px;color:var(--t3);margin-top:8px">⚠️ 최초 실행 시 인증서 자동 생성 → 브라우저 경고에서 <b style="color:var(--t2)">고급 → 계속 진행</b> 클릭</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Windows -->
+    <div id="tab-win" class="install-panel">
+      <div class="install-steps">
+        <div class="install-step">
+          <div class="install-step-num">1</div>
+          <div>
+            <h4>Python 3.10+ 설치</h4>
+            <p>python.org에서 Windows 설치 파일을 다운로드합니다. 설치 시 <b>"Add Python to PATH"</b> 체크박스를 반드시 활성화하세요.</p>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="install-step-num">2</div>
+          <div>
+            <h4><code style="color:var(--acc)">install_windows.bat</code> 실행</h4>
+            <p>마우스 우클릭 → <b>관리자 권한으로 실행</b>을 선택합니다.</p>
+            <div class="code-block"><span class="comment"># 자동으로 처리되는 항목</span>
+<span class="cmd">pip install</span> <span class="arg">flask faster-whisper sounddevice numpy</span>
+<span class="cmd">pip install</span> <span class="arg">resemblyzer webrtcvad pynput send2trash</span>
+
+<span class="comment"># portaudio는 Windows에서 sounddevice가 자동 포함</span></div>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="install-step-num">3</div>
+          <div>
+            <h4>Claude CLI 설치</h4>
+            <div class="code-block"><span class="comment"># Node.js가 없다면 nodejs.org에서 먼저 설치</span>
+<span class="cmd">npm install -g</span> <span class="arg">@anthropic-ai/claude-code</span></div>
+          </div>
+        </div>
+        <div class="install-step">
+          <div class="install-step-num">4</div>
+          <div>
+            <h4><code style="color:var(--acc)">start_windows.bat</code> 더블클릭</h4>
+            <p>자동으로 브라우저가 열리며 <b>http://localhost:5555</b>로 접속됩니다.</p>
+            <div style="background:var(--card2);border:1px solid var(--bd);border-radius:8px;padding:12px 16px;margin-top:10px">
+              <div style="font-size:12px;font-weight:700;color:var(--t2);margin-bottom:8px">🔒 HTTPS로 접속하려면</div>
+              <div style="font-size:12px;color:var(--t3);margin-bottom:4px">방법 1 — 명령 프롬프트(CMD)에서 직접</div>
+              <div class="code-block" style="margin-bottom:8px"><span class="cmd">set</span> <span class="arg">HTTPS=1</span> <span class="comment">&amp;&amp;</span> <span class="cmd">python</span> <span class="arg">server.py</span></div>
+              <div style="font-size:12px;color:var(--t3);margin-bottom:4px">방법 2 — start_windows.bat 마지막 줄 변경 (항상 HTTPS)</div>
+              <div class="code-block"><span class="comment">rem python server.py  ← 이 줄을 아래로 교체</span>
+<span class="cmd">set</span> <span class="arg">HTTPS=1</span> <span class="comment">&amp;&amp;</span> <span class="cmd">python</span> <span class="arg">server.py</span></div>
+              <p style="font-size:11px;color:var(--t3);margin-top:8px">⚠️ 최초 실행 시 인증서 자동 생성 → 브라우저 경고에서 <b style="color:var(--t2)">고급 → 계속 진행</b> 클릭</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 패키지 -->
+    <div id="tab-req" class="install-panel">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">
+        <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:16px">
+          <h4 style="font-size:13px;color:var(--acc);margin-bottom:10px">🔴 필수</h4>
+          <div style="display:flex;flex-direction:column;gap:7px;font-size:13px">
+            <div style="display:flex;justify-content:space-between"><span>flask</span><span style="color:var(--t3)">웹 서버</span></div>
+            <div style="display:flex;justify-content:space-between"><span>faster-whisper</span><span style="color:var(--t3)">음성 전사</span></div>
+            <div style="display:flex;justify-content:space-between"><span>sounddevice</span><span style="color:var(--t3)">마이크 캡처</span></div>
+            <div style="display:flex;justify-content:space-between"><span>numpy</span><span style="color:var(--t3)">오디오 처리</span></div>
+          </div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:16px">
+          <h4 style="font-size:13px;color:var(--yellow);margin-bottom:10px">🟡 권장</h4>
+          <div style="display:flex;flex-direction:column;gap:7px;font-size:13px">
+            <div style="display:flex;justify-content:space-between"><span>resemblyzer</span><span style="color:var(--t3)">화자 자동 식별</span></div>
+            <div style="display:flex;justify-content:space-between"><span>webrtcvad</span><span style="color:var(--t3)">정밀 발화 감지</span></div>
+            <div style="display:flex;justify-content:space-between"><span>pynput</span><span style="color:var(--t3)">키보드 단축키</span></div>
+            <div style="display:flex;justify-content:space-between"><span>send2trash</span><span style="color:var(--t3)">안전 삭제</span></div>
+          </div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r);padding:16px">
+          <h4 style="font-size:13px;color:var(--teal);margin-bottom:10px">🔵 선택</h4>
+          <div style="display:flex;flex-direction:column;gap:7px;font-size:13px">
+            <div style="display:flex;justify-content:space-between"><span>cryptography</span><span style="color:var(--t3)">HTTPS 인증서</span></div>
+            <div style="display:flex;justify-content:space-between"><span>qrcode[pil]</span><span style="color:var(--t3)">공유 QR코드</span></div>
+            <div style="display:flex;justify-content:space-between"><span>noisereduce</span><span style="color:var(--t3)">노이즈 필터</span></div>
+          </div>
+        </div>
+        <div style="background:var(--card);border:1px solid rgba(99,102,241,0.25);border-radius:var(--r);padding:16px">
+          <h4 style="font-size:13px;color:#c7d2fe;margin-bottom:10px">🤖 외부 도구</h4>
+          <div style="display:flex;flex-direction:column;gap:7px;font-size:13px">
+            <div style="display:flex;justify-content:space-between"><span>Claude Code CLI</span><span style="color:var(--t3)">AI 분석 (필수)</span></div>
+            <div style="display:flex;justify-content:space-between"><span>Asana MCP</span><span style="color:var(--t3)">태스크 연동 (선택)</span></div>
+            <div style="display:flex;justify-content:space-between"><span>Homebrew</span><span style="color:var(--t3)">macOS portaudio</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ FEATURES ═══════════════ -->
+<section id="features" style="background:var(--bg)">
+  <div class="container">
+    <div class="sec-label">기능</div>
+    <h2 class="sec-title">모든 기능 한눈에</h2>
+    <p class="sec-desc">회의의 시작부터 끝까지, 그리고 회의 후 정리까지 AI가 함께합니다.</p>
+
+    <div class="feat-grid">
+      <div class="feat-card" style="--card-glow:radial-gradient(ellipse at 0% 0%, rgba(99,102,241,0.2), transparent)">
+        <div class="feat-icon" style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.2)">🎙</div>
+        <h3>실시간 음성 전사</h3>
+        <p>Whisper large-v3-turbo 모델이 1.5초 간격으로 음성을 텍스트로 변환합니다. 한국어·영어·일본어·자동 감지를 지원합니다.</p>
+        <div class="feat-tag" style="background:rgba(99,102,241,0.1);color:#a5b4fc;border:1px solid rgba(99,102,241,0.2)">핵심 기능</div>
+      </div>
+
+      <div class="feat-card" style="--card-glow:radial-gradient(ellipse at 0% 0%, rgba(244,114,182,0.15), transparent)">
+        <div class="feat-icon" style="background:rgba(244,114,182,0.1);border:1px solid rgba(244,114,182,0.2)">👤</div>
+        <h3>화자 식별</h3>
+        <p><b>직접 등록</b> — 이름 입력 후 5초 발화로 즉시 등록. <b>자동 식별</b> — 저장된 프로파일과 코사인 유사도 비교로 자동 매칭.</p>
+        <div class="feat-tag" style="background:rgba(244,114,182,0.1);color:#f9a8d4;border:1px solid rgba(244,114,182,0.2)">resemblyzer</div>
+      </div>
+
+      <div class="feat-card" style="--card-glow:radial-gradient(ellipse at 0% 0%, rgba(251,191,36,0.12), transparent)">
+        <div class="feat-icon" style="background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.2)">✏️</div>
+        <h3>STT 자동 교정</h3>
+        <p>매 발화마다 Claude가 음성 인식 오류를 자동 수정합니다. 수정된 부분은 ✏️ 마크로 표시되며, 원본은 툴팁으로 확인할 수 있습니다.</p>
+        <div class="feat-tag" style="background:rgba(251,191,36,0.1);color:#fde68a;border:1px solid rgba(251,191,36,0.2)">Claude AI</div>
+      </div>
+
+      <div class="feat-card" style="--card-glow:radial-gradient(ellipse at 0% 0%, rgba(45,212,191,0.12), transparent)">
+        <div class="feat-icon" style="background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.2)">📋</div>
+        <h3>회의 전 브리핑</h3>
+        <p>회의 시작 전 <b>회의 전 브리핑</b> 버튼을 누르면 최근 5개 회의의 미결 사항과 액션 아이템을 자동으로 요약해서 보여줍니다.</p>
+        <div class="feat-tag" style="background:rgba(45,212,191,0.1);color:#5eead4;border:1px solid rgba(45,212,191,0.2)">사전 준비</div>
+      </div>
+
+      <div class="feat-card" style="--card-glow:radial-gradient(ellipse at 0% 0%, rgba(74,222,128,0.12), transparent)">
+        <div class="feat-icon" style="background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2)">🏁</div>
+        <h3>AI 회의 요약</h3>
+        <p>종료 버튼을 누르면 Claude가 전체 회의를 분석하여 요약 · 주요 결정사항 · 미결 이슈 · 액션 아이템 · 다음 안건을 생성합니다.</p>
+        <div class="feat-tag" style="background:rgba(74,222,128,0.1);color:#86efac;border:1px solid rgba(74,222,128,0.2)">종료 후 자동</div>
+      </div>
+
+      <div class="feat-card" style="--card-glow:radial-gradient(ellipse at 0% 0%, rgba(139,92,246,0.15), transparent)">
+        <div class="feat-icon" style="background:rgba(139,92,246,0.1);border:1px solid rgba(139,92,246,0.2)">🔍</div>
+        <h3>회의록 검색</h3>
+        <p><b>키워드 검색</b>으로 과거 회의를 빠르게 탐색. <b>시맨틱 검색</b>을 활성화하면 의미 기반으로 관련 발화를 찾아줍니다.</p>
+        <div class="feat-tag" style="background:rgba(139,92,246,0.1);color:#c4b5fd;border:1px solid rgba(139,92,246,0.2)">키워드 + 시맨틱</div>
+      </div>
+
+      <div class="feat-card" style="--card-glow:radial-gradient(ellipse at 0% 0%, rgba(251,191,36,0.12), transparent)">
+        <div class="feat-icon" style="background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.2)">🗣️</div>
+        <h3>헤이 클로드 트리거</h3>
+        <p>"<b>헤이 클로드</b>", "<b>Hey Claude</b>", "<b>클로드야</b>" 뒤에 질문하면 음성만으로 Claude에게 바로 질문할 수 있습니다.</p>
+        <div class="feat-tag" style="background:rgba(251,191,36,0.1);color:#fde68a;border:1px solid rgba(251,191,36,0.2)">음성 트리거</div>
+      </div>
+
+      <div class="feat-card" style="--card-glow:radial-gradient(ellipse at 0% 0%, rgba(239,68,68,0.12), transparent)">
+        <div class="feat-icon" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2)">📖</div>
+        <h3>자동 용어집</h3>
+        <p>회의 중 새로운 기술 용어나 고유명사가 등장하면 자동으로 용어집에 추가됩니다. 다음 회의부터 Whisper 인식 정확도가 향상됩니다.</p>
+        <div class="feat-tag" style="background:rgba(239,68,68,0.1);color:#fca5a5;border:1px solid rgba(239,68,68,0.2)">자동 학습</div>
+      </div>
+
+      <div class="feat-card" style="--card-glow:radial-gradient(ellipse at 0% 0%, rgba(6,182,212,0.12), transparent)">
+        <div class="feat-icon" style="background:rgba(6,182,212,0.1);border:1px solid rgba(6,182,212,0.2)">🎤</div>
+        <h3>다중 마이크</h3>
+        <p>회의실에 여러 마이크가 연결된 경우 추가 마이크를 선택해 동시에 음성을 수집합니다. 노이즈 적응형 VAD로 배경음을 자동 필터링합니다.</p>
+        <div class="feat-tag" style="background:rgba(6,182,212,0.1);color:#67e8f9;border:1px solid rgba(6,182,212,0.2)">고급 설정</div>
+      </div>
+
+      <div class="feat-card" style="--card-glow:radial-gradient(ellipse at 0% 0%, rgba(74,222,128,0.12), transparent)">
+        <div class="feat-icon" style="background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2)">🔗</div>
+        <h3>팀 공유 링크</h3>
+        <p>같은 Wi-Fi의 팀원이 QR코드나 링크로 실시간 회의록을 볼 수 있습니다. 읽기 전용 모드로 안전하게 공유됩니다.</p>
+        <div class="feat-tag" style="background:rgba(74,222,128,0.1);color:#86efac;border:1px solid rgba(74,222,128,0.2)">실시간 공유</div>
+      </div>
+
+      <div class="feat-card" style="--card-glow:radial-gradient(ellipse at 0% 0%, rgba(99,102,241,0.15), transparent)">
+        <div class="feat-icon" style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.2)">📊</div>
+        <h3>Asana 연동</h3>
+        <p>회의 후 액션 아이템을 Claude에게 요청하면 MCP를 통해 Asana 태스크를 자동으로 생성합니다. 담당자·마감일도 함께 설정됩니다.</p>
+        <div class="feat-tag" style="background:rgba(99,102,241,0.1);color:#a5b4fc;border:1px solid rgba(99,102,241,0.2)">MCP 연동</div>
+      </div>
+
+      <div class="feat-card" style="--card-glow:radial-gradient(ellipse at 0% 0%, rgba(45,212,191,0.12), transparent)">
+        <div class="feat-icon" style="background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.2)">📝</div>
+        <h3>Obsidian 호환 회의록</h3>
+        <p>회의록은 YAML frontmatter + Markdown 형식으로 저장되어 Obsidian에서 바로 열 수 있습니다. Callout 블록·태그·날짜 메타데이터 포함.</p>
+        <div class="feat-tag" style="background:rgba(45,212,191,0.1);color:#5eead4;border:1px solid rgba(45,212,191,0.2)">Markdown</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ USAGE FLOW ═══════════════ -->
+<section id="usage" style="background:var(--surface)">
+  <div class="container">
+    <div class="sec-label">사용 플로우</div>
+    <h2 class="sec-title">단계별 사용 방법</h2>
+    <p class="sec-desc">처음 사용하더라도 아래 순서대로 따라하면 바로 시작할 수 있습니다.</p>
+
+    <div class="steps">
+
+      <div class="step">
+        <div class="step-num-col">
+          <div class="step-num" style="background:rgba(99,102,241,0.15);border:2px solid rgba(99,102,241,0.4);color:#a5b4fc">1</div>
+          <div class="step-line" style="background:linear-gradient(to bottom,rgba(99,102,241,0.3),rgba(45,212,191,0.3))"></div>
+        </div>
+        <div class="step-body">
+          <h3>서버 실행</h3>
+          <p><code style="color:#7dd3fc">start.command</code> (Mac) 또는 <code style="color:#7dd3fc">start_windows.bat</code> (Windows)를 더블클릭합니다. 브라우저가 자동으로 열리며 <b>http://localhost:5555</b>로 접속됩니다.</p>
+          <div class="step-tags">
+            <span class="step-tag">처음 실행 시 Whisper 모델 로드 약 30초 소요</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num-col">
+          <div class="step-num" style="background:rgba(45,212,191,0.12);border:2px solid rgba(45,212,191,0.35);color:#5eead4">2</div>
+          <div class="step-line" style="background:linear-gradient(to bottom,rgba(45,212,191,0.3),rgba(244,114,182,0.3))"></div>
+        </div>
+        <div class="step-body">
+          <h3>목소리 등록 <span style="font-size:12px;font-weight:600;background:rgba(45,212,191,0.12);color:#2dd4bf;border:1px solid rgba(45,212,191,0.3);border-radius:6px;padding:2px 8px;vertical-align:middle">첫 사용 시 강력 권장</span></h3>
+          <p>목소리를 미리 등록하면 회의록에 <b>"이재헌: ..."</b> 형태로 발화자가 정확히 표시됩니다. 등록 없이 시작하면 <b>"화자1", "화자2"</b>처럼 익명으로 기록되어 나중에 누가 한 말인지 구분하기 어렵습니다.</p>
+
+          <!-- 두 가지 모드 비교 -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0">
+            <div style="background:rgba(45,212,191,0.06);border:1px solid rgba(45,212,191,0.2);border-radius:10px;padding:14px">
+              <div style="font-size:12px;font-weight:700;color:#2dd4bf;margin-bottom:6px">🎤 직접 등록 (권장)</div>
+              <div style="font-size:12px;color:var(--t2);line-height:1.7">지금 이 자리에서 5초간 목소리 녹음<br>회의 참석자 전원 등록 후 시작<br>가장 정확한 화자 구분</div>
+            </div>
+            <div style="background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.2);border-radius:10px;padding:14px">
+              <div style="font-size:12px;font-weight:700;color:var(--acc);margin-bottom:6px">🔄 자동 식별</div>
+              <div style="font-size:12px;color:var(--t2);line-height:1.7">이전에 등록한 프로파일로 자동 매칭<br>한 번만 등록하면 이후 회의는 자동<br>신규 참석자는 미매칭으로 처리</div>
+            </div>
+          </div>
+
+          <!-- 직접 등록 단계 -->
+          <div style="background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:16px;margin-top:4px">
+            <div style="font-size:12px;font-weight:700;color:var(--t1);margin-bottom:12px">🎤 직접 등록 단계별 방법</div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;gap:12px;align-items:flex-start">
+                <div style="width:22px;height:22px;border-radius:50%;background:rgba(45,212,191,0.15);border:1px solid rgba(45,212,191,0.3);color:#2dd4bf;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">1</div>
+                <div style="font-size:13px;color:var(--t2)">왼쪽 패널에서 <b style="color:var(--t1)">직접 등록</b> 탭을 선택합니다.</div>
+              </div>
+              <div style="display:flex;gap:12px;align-items:flex-start">
+                <div style="width:22px;height:22px;border-radius:50%;background:rgba(45,212,191,0.15);border:1px solid rgba(45,212,191,0.3);color:#2dd4bf;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">2</div>
+                <div style="font-size:13px;color:var(--t2)">이름 입력창에 <b style="color:var(--t1)">첫 번째 참석자 이름</b>을 입력합니다. (예: 이재헌)</div>
+              </div>
+              <div style="display:flex;gap:12px;align-items:flex-start">
+                <div style="width:22px;height:22px;border-radius:50%;background:rgba(45,212,191,0.15);border:1px solid rgba(45,212,191,0.3);color:#2dd4bf;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">3</div>
+                <div style="font-size:13px;color:var(--t2)"><b style="color:var(--t1)">등록</b> 버튼을 클릭하고 상태바에 <b style="color:#f87171">🔴 녹음 중...</b> 표시가 나타나면 해당 인물이 <b style="color:var(--t1)">5초간 자연스럽게 말합니다.</b><br><span style="font-size:11px;color:var(--t3);margin-top:3px;display:block">예: "안녕하세요, 저는 이재헌입니다. 오늘 회의 잘 부탁드립니다."</span></div>
+              </div>
+              <div style="display:flex;gap:12px;align-items:flex-start">
+                <div style="width:22px;height:22px;border-radius:50%;background:rgba(45,212,191,0.15);border:1px solid rgba(45,212,191,0.3);color:#2dd4bf;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">4</div>
+                <div style="font-size:13px;color:var(--t2)">등록 완료 메시지를 확인한 뒤 <b style="color:var(--t1)">다음 참석자</b>도 동일하게 반복합니다.</div>
+              </div>
+              <div style="display:flex;gap:12px;align-items:flex-start">
+                <div style="width:22px;height:22px;border-radius:50%;background:rgba(45,212,191,0.15);border:1px solid rgba(45,212,191,0.3);color:#2dd4bf;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">5</div>
+                <div style="font-size:13px;color:var(--t2)">참석자 전원 등록 후 <b style="color:var(--t1)">● 회의 시작</b> 버튼을 누릅니다.</div>
+              </div>
+            </div>
+
+            <!-- 팁 -->
+            <div style="background:rgba(251,191,36,0.07);border:1px solid rgba(251,191,36,0.2);border-radius:8px;padding:10px 14px;margin-top:14px;font-size:12px">
+              <div style="font-weight:700;color:var(--yellow);margin-bottom:5px">💡 잘 되는 팁</div>
+              <div style="color:var(--t2);line-height:1.8">
+                · 조용한 환경에서 등록할수록 정확도가 높아집니다<br>
+                · 한 사람씩 번갈아 가며 등록하세요 (동시 발화 금지)<br>
+                · 등록한 목소리 프로파일은 <code style="font-size:11px">voices/</code> 폴더에 저장되어 다음 회의에서도 자동 사용됩니다
+              </div>
+            </div>
+          </div>
+
+          <div class="step-tags" style="margin-top:12px">
+            <span class="step-tag">등록 생략 시 '화자1', '화자2'로 자동 분류</span>
+            <span class="step-tag">프로파일은 영구 저장 — 다음 회의 자동 식별</span>
+            <span class="step-tag">임계값 0.78 이상 일치 시 매칭</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num-col">
+          <div class="step-num" style="background:rgba(244,114,182,0.12);border:2px solid rgba(244,114,182,0.35);color:#f9a8d4">3</div>
+          <div class="step-line" style="background:linear-gradient(to bottom,rgba(244,114,182,0.3),rgba(251,191,36,0.3))"></div>
+        </div>
+        <div class="step-body">
+          <h3>회의 설정 및 시작</h3>
+          <p>언어·정확도·마이크·템플릿을 선택하고 <b>● 회의 시작</b> 버튼을 누릅니다. 마이크가 켜지고 실시간 전사가 시작됩니다.</p>
+          <div style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:12px;font-size:12px">
+              <div style="color:var(--t3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em;font-size:10px">정확도 모드</div>
+              <div style="color:var(--t2);line-height:1.7">⚡ 빠름 — 5초 청크 (저지연)<br>⚖️ 균형 — 8초 (기본값)<br>🎯 정확 — 15초 (고정밀)</div>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:12px;font-size:12px">
+              <div style="color:var(--t3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em;font-size:10px">템플릿</div>
+              <div style="color:var(--t2);line-height:1.7">💼 일반 회의<br>🔄 데일리 스크럼<br>🤝 1on1 · 🏗️ 기획 · 📅 주간</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num-col">
+          <div class="step-num" style="background:rgba(251,191,36,0.1);border:2px solid rgba(251,191,36,0.35);color:#fcd34d">4</div>
+          <div class="step-line" style="background:linear-gradient(to bottom,rgba(251,191,36,0.3),rgba(74,222,128,0.3))"></div>
+        </div>
+        <div class="step-body">
+          <h3>회의 진행 중</h3>
+          <p>발화가 자동으로 전사되고 화자 이름과 함께 화면에 표시됩니다. 왼쪽 하단의 텍스트 입력창으로 언제든지 Claude에게 질문할 수 있습니다.</p>
+          <div class="tip-example" style="margin-top:14px">
+            <div class="q">"지금까지 결정된 사항 정리해줘"</div>
+            <div class="q" style="margin-top:4px">"이재헌 담당 Asana 태스크 확인해줘"</div>
+            <div class="q" style="margin-top:4px">"다음 스프린트 어젠다 초안 만들어줘"</div>
+            <div style="margin-top:8px;color:var(--t3);font-size:11px">또는 음성으로: "헤이 클로드, 지금까지 요약해줘"</div>
+          </div>
+          <div class="step-tags" style="margin-top:12px">
+            <span class="step-tag">⏸ 일시정지 — 회의 중단 시</span>
+            <span class="step-tag">✕ 취소 — 기록 없이 종료</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num-col">
+          <div class="step-num" style="background:rgba(74,222,128,0.1);border:2px solid rgba(74,222,128,0.35);color:#86efac">5</div>
+          <div class="step-line" style="display:none"></div>
+        </div>
+        <div class="step-body">
+          <h3>종료 및 AI 요약</h3>
+          <p><b>■ 종료 + AI 요약 생성</b> 버튼을 누르면 Claude가 전체 회의를 분석합니다. 요약이 완료되면 화면에 표시되며 📋 복사 버튼으로 마크다운을 복사할 수 있습니다.</p>
+          <div style="margin-top:14px;background:var(--card);border:1px solid rgba(99,102,241,0.2);border-radius:10px;padding:14px;font-size:13px">
+            <div style="color:#c7d2fe;font-weight:600;margin-bottom:8px">AI 분석 결과 항목</div>
+            <div style="color:var(--t2);display:grid;grid-template-columns:1fr 1fr;gap:5px">
+              <div>📌 회의 요약</div>
+              <div>✅ 주요 결정사항</div>
+              <div>❓ 미결 이슈</div>
+              <div>📋 액션 아이템</div>
+              <div>📅 다음 안건</div>
+              <div>🔑 핵심 키워드</div>
+            </div>
+          </div>
+          <div class="step-tags" style="margin-top:12px">
+            <span class="step-tag">회의록은 meetings/ 폴더에 .md 파일로 자동 저장</span>
+            <span class="step-tag">Obsidian 폴더 연동 시 자동 복사</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ AUTO FEATURES ═══════════════ -->
+<section id="auto" style="background:var(--bg)">
+  <div class="container">
+    <div class="sec-label">자동 기능</div>
+    <h2 class="sec-title">신경 쓰지 않아도 동작하는 것들</h2>
+    <p class="sec-desc">회의에 집중하세요. 아래 기능들은 백그라운드에서 자동으로 처리됩니다.</p>
+
+    <div class="auto-grid">
+      <div class="auto-card">
+        <div class="auto-icon">✏️</div>
+        <div>
+          <h3>STT 교정</h3>
+          <p>매 발화마다 Claude가 음성 인식 오류를 자동 수정. 수정 이력을 툴팁으로 확인 가능.</p>
+        </div>
+      </div>
+      <div class="auto-card">
+        <div class="auto-icon">📍</div>
+        <div>
+          <h3>주제 변경 감지</h3>
+          <p>90초마다 Claude가 대화 내용을 분석해 주제가 바뀌면 구분선과 주제명을 삽입.</p>
+        </div>
+      </div>
+      <div class="auto-card">
+        <div class="auto-icon">🤖</div>
+        <div>
+          <h3>자동 개입 (4가지 패턴)</h3>
+          <p>"기억 안 나" → 이전 회의 검색<br>"결정하자" → 요약 제공<br>"담당자가 누구" → 담당자 확인<br>"마감이 언제" → 마감일 정리</p>
+        </div>
+      </div>
+      <div class="auto-card">
+        <div class="auto-icon">📊</div>
+        <div>
+          <h3>회의 품질 피드백</h3>
+          <p>10분마다 시간 배분·발언 균형·진행 상태를 분석해 보라색 피드백 블록으로 표시.</p>
+        </div>
+      </div>
+      <div class="auto-card">
+        <div class="auto-icon">📖</div>
+        <div>
+          <h3>용어집 자동 학습</h3>
+          <p>대화에서 새로운 기술 용어를 자동 추출해 용어집에 저장. 다음 회의 인식 정확도 향상.</p>
+        </div>
+      </div>
+      <div class="auto-card">
+        <div class="auto-icon">🔇</div>
+        <div>
+          <h3>노이즈 적응형 VAD</h3>
+          <p>시작 시 2초 동안 주변 소음을 측정해 임계값을 자동 조정. 배경 소음에 의한 오전사 방지.</p>
+        </div>
+      </div>
+      <div class="auto-card">
+        <div class="auto-icon">⚠️</div>
+        <div>
+          <h3>비정상 종료 복구</h3>
+          <p>갑작스러운 종료 후 재시작 시 미완료 회의를 감지해 AI 요약 복구를 제안.</p>
+        </div>
+      </div>
+      <div class="auto-card">
+        <div class="auto-icon">🏷️</div>
+        <div>
+          <h3>메타데이터 자동 생성</h3>
+          <p>날짜·시간·참여자·주제·상태가 YAML frontmatter로 자동 기록. 종료 시 제목도 자동 생성.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 자동 개입 트리거 테이블 -->
+    <div style="margin-top:48px">
+      <h3 style="font-size:16px;margin-bottom:16px;color:var(--t2)">자동 개입 감지 패턴</h3>
+      <div style="background:var(--card);border:1px solid var(--bd);border-radius:var(--r2);overflow:hidden">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="background:var(--row-bg);border-bottom:1px solid var(--bd)">
+              <th style="padding:12px 20px;text-align:left;color:var(--t3);font-weight:600;letter-spacing:.05em;font-size:11px;text-transform:uppercase">감지 표현</th>
+              <th style="padding:12px 20px;text-align:left;color:var(--t3);font-weight:600;letter-spacing:.05em;font-size:11px;text-transform:uppercase">개입 유형</th>
+              <th style="padding:12px 20px;text-align:left;color:var(--t3);font-weight:600;letter-spacing:.05em;font-size:11px;text-transform:uppercase">동작</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom:1px solid var(--bd)">
+              <td style="padding:13px 20px;color:var(--t1)">"기억 안 나", "뭐였지", "언제 했더라"</td>
+              <td style="padding:13px 20px"><span style="background:rgba(99,102,241,0.1);color:#a5b4fc;padding:2px 9px;border-radius:6px;font-size:11px">이전 회의 검색</span></td>
+              <td style="padding:13px 20px;color:var(--t2)">최근 회의록에서 관련 내용 검색 후 답변</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--bd)">
+              <td style="padding:13px 20px;color:var(--t1)">"결정하자", "정리하면", "요약해"</td>
+              <td style="padding:13px 20px"><span style="background:rgba(45,212,191,0.1);color:#5eead4;padding:2px 9px;border-radius:6px;font-size:11px">현재까지 요약</span></td>
+              <td style="padding:13px 20px;color:var(--t2)">지금까지 논의된 내용을 즉시 정리</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--bd)">
+              <td style="padding:13px 20px;color:var(--t1)">"담당자가 누구", "누가 하", "맡기자"</td>
+              <td style="padding:13px 20px"><span style="background:rgba(244,114,182,0.1);color:#f9a8d4;padding:2px 9px;border-radius:6px;font-size:11px">담당자 확인</span></td>
+              <td style="padding:13px 20px;color:var(--t2)">언급된 태스크의 담당자 정리</td>
+            </tr>
+            <tr>
+              <td style="padding:13px 20px;color:var(--t1)">"마감", "언제까지", "기한", "데드라인"</td>
+              <td style="padding:13px 20px"><span style="background:rgba(251,191,36,0.1);color:#fde68a;padding:2px 9px;border-radius:6px;font-size:11px">마감일 정리</span></td>
+              <td style="padding:13px 20px;color:var(--t2)">언급된 마감일을 표로 정리</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="font-size:12px;color:var(--t3);margin-top:10px">※ 연속 자동 개입을 방지하기 위해 동일 유형은 30초 쿨다운이 적용됩니다.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ TIPS ═══════════════ -->
+<section id="tips" style="background:var(--surface)">
+  <div class="container">
+    <div class="sec-label">팁 & 단축키</div>
+    <h2 class="sec-title">더 잘 활용하는 방법</h2>
+    <p class="sec-desc">알아두면 생산성이 올라가는 기능들을 모았습니다.</p>
+
+    <div class="tips-grid">
+
+      <div class="tip-card">
+        <h3>⌨️ 단축키</h3>
+        <div class="tip-row">
+          <span>질문 전송</span>
+          <span><kbd>⌘</kbd> + <kbd>↵</kbd></span>
+        </div>
+        <div class="tip-row">
+          <span>회의록 검색</span>
+          <span><kbd>Enter</kbd> (검색창)</span>
+        </div>
+        <div class="tip-row">
+          <span>뷰어 닫기</span>
+          <span>패널 외부 클릭</span>
+        </div>
+      </div>
+
+      <div class="tip-card">
+        <h3>🎤 음성 질문 예시</h3>
+        <div class="tip-example">
+          <div class="q">헤이 클로드, 지금까지 요약해줘</div>
+          <div class="q">헤이 클로드, 액션 아이템 정리해줘</div>
+          <div class="q">클로드야, 담당자 목록 만들어줘</div>
+        </div>
+      </div>
+
+      <div class="tip-card">
+        <h3>💬 텍스트 질문 예시</h3>
+        <div class="tip-example">
+          <div class="q">Asana에서 이재헌 담당 태스크 확인</div>
+          <div class="q">이번 주 완료해야 할 것 목록</div>
+          <div class="q">다음 회의 어젠다 초안 작성</div>
+          <div class="q">미결 이슈 표로 정리</div>
+        </div>
+      </div>
+
+      <div class="tip-card">
+        <h3>🔍 검색 팁</h3>
+        <div class="tip-example">
+          <div style="color:var(--t2)">키워드 검색: 일반 단어 입력</div>
+          <div style="color:var(--t2);margin-top:5px">시맨틱 검색 ✓: "API 성능 문제가 논의된 부분"처럼 문장으로 검색</div>
+          <div style="color:var(--t2);margin-top:5px">발화자 필터: 특정 인물 발화만 검색</div>
+          <div style="color:var(--t2);margin-top:5px">날짜 필터: 2026-04 형식으로 기간 검색</div>
+        </div>
+      </div>
+
+      <div class="tip-card">
+        <h3>📁 회의록 파일 위치</h3>
+        <div class="tip-example" style="font-family:monospace">
+          <div>meetings/</div>
+          <div style="padding-left:14px;color:var(--t3)">meeting_20260407_143022.md</div>
+          <div style="padding-left:14px;color:var(--t3)">meeting_20260406_100015.md</div>
+          <div style="margin-top:8px;color:var(--t2)">voices/{이름}/*.npy</div>
+          <div style="color:var(--t3);font-size:11px;margin-top:4px">목소리 프로파일 영구 저장</div>
+        </div>
+      </div>
+
+      <div class="tip-card">
+        <h3>🖥️ 터미널 검색 도구</h3>
+        <div class="code-block" style="font-size:11px"><span class="comment"># 키워드 검색</span>
+<span class="cmd">python3 search.py</span> <span class="arg">백엔드</span>
+<span class="comment"># 발화자 필터</span>
+<span class="cmd">python3 search.py</span> <span class="arg">API --speaker Jerry</span>
+<span class="comment"># 날짜 필터</span>
+<span class="cmd">python3 search.py</span> <span class="arg">--date 2026-04</span>
+<span class="comment"># 전체 목록</span>
+<span class="cmd">python3 search.py</span> <span class="arg">--list</span></div>
+      </div>
+
+      <div class="tip-card">
+        <h3>📱 모바일 / HTTPS 접속</h3>
+        <div class="tip-example">
+          <div style="color:var(--t2)">같은 Wi-Fi에서 모바일 접속:</div>
+          <div style="color:#7dd3fc;font-family:monospace;margin-top:6px">HTTPS=1 python3 server.py</div>
+          <div style="color:var(--t3);font-size:11px;margin-top:6px">상단 공유 버튼 → QR코드로 팀원 초대</div>
+        </div>
+      </div>
+
+      <div class="tip-card">
+        <h3>⚙️ 시스템 상태 확인</h3>
+        <div class="tip-example">
+          <div style="color:var(--t2)">UI 상단 🔧 버튼으로 의존성 상태 확인:</div>
+          <div style="color:var(--t2);margin-top:6px;line-height:1.8">
+            ✅ Whisper 모델 로드 여부<br>
+            ✅ resemblyzer 설치 여부<br>
+            ✅ Claude CLI 연결 여부<br>
+            ✅ webrtcvad 설치 여부
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ FAQ ═══════════════ -->
+<section id="faq" style="background:var(--surface)">
+  <div class="container">
+    <div class="sec-label">FAQ</div>
+    <h2 class="sec-title">자주 묻는 질문</h2>
+    <p class="sec-desc">도입 전에 가장 많이 받는 질문들을 모았습니다.</p>
+
+    <div style="display:flex;flex-direction:column;gap:12px;max-width:760px;margin:0 auto">
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          <span>회의 내용이 외부 서버로 전송되나요?</span>
+          <span class="faq-arrow">›</span>
+        </button>
+        <div class="faq-a">
+          <p><b style="color:var(--green)">음성과 원본 텍스트는 로컬에만 저장됩니다.</b> 마이크 → Whisper 전사 → 회의록 저장까지 모두 내 컴퓨터 안에서 처리됩니다.</p>
+          <p style="margin-top:8px">단, STT 교정·요약·자동 개입 기능 사용 시 발화 텍스트 일부가 <b>Claude Code CLI를 통해 Anthropic 서버로 전송</b>됩니다. 음성 파일 자체는 절대 외부로 나가지 않습니다.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          <span>Claude 유료 구독이 반드시 필요한가요?</span>
+          <span class="faq-arrow">›</span>
+        </button>
+        <div class="faq-a">
+          <p><b>AI 기능 사용 시 필요합니다.</b> Claude Code CLI는 claude.ai 계정으로 OAuth 인증하며 아래 플랜이 지원됩니다.</p>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;font-size:13px">
+            <span style="background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.25);border-radius:6px;padding:4px 12px;color:#86efac">✅ Claude Pro ($20/월)</span>
+            <span style="background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.25);border-radius:6px;padding:4px 12px;color:#86efac">✅ Claude Team</span>
+            <span style="background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.25);border-radius:6px;padding:4px 12px;color:#86efac">✅ Claude Max</span>
+            <span style="background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.25);border-radius:6px;padding:4px 12px;color:#86efac">✅ Anthropic API</span>
+          </div>
+          <p style="margin-top:10px;font-size:13px;color:var(--t3)">Claude Code CLI는 API 키 방식이 아닌 <b>claude.ai 계정 인증</b> 방식입니다. 첫 실행 시 브라우저가 열리면서 로그인하면 자동 설정됩니다.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          <span>회의 중에 인터넷 연결이 필요한가요?</span>
+          <span class="faq-arrow">›</span>
+        </button>
+        <div class="faq-a">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px;font-size:13px">
+            <div style="background:rgba(74,222,128,0.06);border:1px solid rgba(74,222,128,0.2);border-radius:8px;padding:12px">
+              <div style="color:#86efac;font-weight:600;margin-bottom:6px">🟢 오프라인 가능</div>
+              <div style="color:var(--t2);line-height:1.7">음성 전사 (Whisper)<br>화자 식별<br>회의록 저장·검색</div>
+            </div>
+            <div style="background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2);border-radius:8px;padding:12px">
+              <div style="color:#fde68a;font-weight:600;margin-bottom:6px">🟡 인터넷 필요</div>
+              <div style="color:var(--t2);line-height:1.7">STT 교정 (Claude)<br>자동 개입·요약<br>Asana·Slack 연동</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          <span>회의록은 어디에 저장되고 어떤 형식인가요?</span>
+          <span class="faq-arrow">›</span>
+        </button>
+        <div class="faq-a">
+          <p>프로그램 폴더 안 <code style="color:var(--code-c)">meetings/</code> 디렉토리에 <b>Markdown(.md) 파일</b>로 저장됩니다. 파일명은 <code style="color:var(--code-c)">meeting_20260407_143022.md</code> 형식입니다.</p>
+          <p style="margin-top:8px">YAML frontmatter(날짜·참여자·태그)와 Obsidian Callout 블록을 포함하여 <b>Obsidian에서 바로 열 수 있습니다.</b> Obsidian vault 경로를 설정하면 회의 종료 시 자동으로 복사됩니다.</p>
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-q" onclick="toggleFaq(this)">
+          <span>여러 명이 동시에 사용할 수 있나요?</span>
+          <span class="faq-arrow">›</span>
+        </button>
+        <div class="faq-a">
+          <p>같은 Wi-Fi 네트워크라면 <b>여러 명이 동시에 실시간 회의록을 볼 수 있습니다.</b> 웹 UI 상단에서 QR코드를 생성하면 팀원들이 스마트폰이나 노트북으로 접속 가능합니다.</p>
+          <p style="margin-top:8px;font-size:13px;color:var(--t3)">단, 마이크 입력과 AI 처리는 서버를 실행 중인 컴퓨터 한 대에서만 이루어집니다. 나머지 기기는 읽기 전용 뷰어입니다.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ CTA ═══════════════ -->
+<section id="cta">
+  <div class="container">
+    <div class="cta-box">
+      <div style="position:relative;z-index:1">
+        <div style="font-size:36px;margin-bottom:16px">🎙️</div>
+        <h2 style="font-size:28px;margin-bottom:12px">지금 바로 시작하세요</h2>
+        <p style="color:var(--t2);font-size:15px;max-width:460px;margin:0 auto 28px;line-height:1.7">모든 회의가 Markdown으로 기록되고, Claude가 분석하고,<br>팀이 함께 활용할 수 있습니다.</p>
+        <div class="hero-btns">
+          <a href="#setup" class="btn-hero btn-hero-primary">🤖 AI 설정하기</a>
+          <a href="#install" class="btn-hero btn-hero-ghost">설치 가이드 보기</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ FOOTER ═══════════════ -->
+<footer>
+  <div>AI 회의 어시스턴트 — 로컬 실행, 외부 전송 없음</div>
+  <div style="margin-top:6px">Whisper · Claude · resemblyzer · Flask · sounddevice</div>
+</footer>
+
+<!-- ═══════════════ README 드로어 ═══════════════ -->
+<div class="readme-overlay" id="readme-overlay" onclick="closeReadmeOutside(event)">
+  <div class="readme-drawer" id="readme-drawer">
+    <div class="readme-hdr">
+      <div class="readme-hdr-left">
+        <span style="font-size:20px">🎙️</span>
+        <div>
+          <div class="readme-hdr-title">AI 회의 어시스턴트 — README</div>
+          <div class="readme-hdr-sub">전체 기능 명세 및 설정 가이드</div>
+        </div>
+      </div>
+      <button class="readme-close" onclick="closeReadme()" title="닫기">✕</button>
+    </div>
+    <div class="readme-body">
+      <!-- 본문 -->
+      <div class="readme-content" id="readme-content">
+
+        <!-- 인라인 목차 -->
+        <div class="rm-toc-inline">
+          <div class="rm-toc-title">목차</div>
+          <div class="rm-toc-grid">
+            <a href="#rs1" onclick="tocClick(event,'rs1')">📦 파일 구성</a>
+            <a href="#rs2" onclick="tocClick(event,'rs2')">🚀 시작하기</a>
+            <a href="#rs3" onclick="tocClick(event,'rs3')">🎛️ 회의 설정</a>
+            <a href="#rs4" onclick="tocClick(event,'rs4')">🎛️ 회의 모드</a>
+            <a href="#rs5" onclick="tocClick(event,'rs5')">🌐 웹 UI 기능</a>
+            <a href="#rs6" onclick="tocClick(event,'rs6')">🔄 자동 기능</a>
+            <a href="#rs7" onclick="tocClick(event,'rs7')">🟣 Obsidian 연동</a>
+            <a href="#rs8" onclick="tocClick(event,'rs8')">📋 액션 아이템</a>
+            <a href="#rs9" onclick="tocClick(event,'rs9')">📖 회사 용어집</a>
+            <a href="#rs10" onclick="tocClick(event,'rs10')">🔧 시스템 상태</a>
+            <a href="#rs11" onclick="tocClick(event,'rs11')">🤖 Whisper 모델</a>
+            <a href="#rs12" onclick="tocClick(event,'rs12')">🎤 목소리 프로파일</a>
+            <a href="#rs13" onclick="tocClick(event,'rs13')">🔍 터미널 검색</a>
+            <a href="#rs14" onclick="tocClick(event,'rs14')">⚙️ 주요 설정값</a>
+            <a href="#rs15" onclick="tocClick(event,'rs15')">🛠️ 문제 해결</a>
+          </div>
+        </div>
+
+        <section id="rs1">
+          <h2>📦 파일 구성</h2>
+          <div class="rm-file-groups">
+
+            <div class="rm-file-group">
+              <div class="rm-group-label rfg-run">🚀 실행 파일</div>
+              <div class="rm-file-list">
+                <div class="rm-file-item">
+                  <code class="rm-code">install.command</code>
+                  <span class="rm-file-os">macOS</span>
+                  <span class="rm-file-desc">설치 — 더블클릭 1회</span>
+                </div>
+                <div class="rm-file-item">
+                  <code class="rm-code">start.command</code>
+                  <span class="rm-file-os">macOS</span>
+                  <span class="rm-file-desc">실행 — 더블클릭으로 시작</span>
+                </div>
+                <div class="rm-file-item">
+                  <code class="rm-code">install_windows.bat</code>
+                  <span class="rm-file-os rfg-win">Win</span>
+                  <span class="rm-file-desc">설치 — 더블클릭 1회</span>
+                </div>
+                <div class="rm-file-item">
+                  <code class="rm-code">start_windows.bat</code>
+                  <span class="rm-file-os rfg-win">Win</span>
+                  <span class="rm-file-desc">실행 — 더블클릭으로 시작</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="rm-file-group">
+              <div class="rm-group-label rfg-core">⚙️ 핵심 코드</div>
+              <div class="rm-file-list">
+                <div class="rm-file-item">
+                  <code class="rm-code">meeting.py</code>
+                  <span class="rm-file-desc">엔진 — 음성인식 · 화자구분 · 회의록 저장</span>
+                </div>
+                <div class="rm-file-item">
+                  <code class="rm-code">server.py</code>
+                  <span class="rm-file-desc">웹 서버 — meeting.py 엔진 구동</span>
+                </div>
+                <div class="rm-file-item">
+                  <code class="rm-code">search.py</code>
+                  <span class="rm-file-desc">회의록 키워드 검색 CLI</span>
+                </div>
+                <div class="rm-file-item">
+                  <code class="rm-code">static/index.html</code>
+                  <span class="rm-file-desc">웹 UI</span>
+                </div>
+                <div class="rm-file-item">
+                  <code class="rm-code">CLAUDE.md</code>
+                  <span class="rm-file-desc">Claude Code 연동 컨텍스트</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="rm-file-group">
+              <div class="rm-group-label rfg-auto">✨ 자동 생성</div>
+              <div class="rm-file-list">
+                <div class="rm-file-item">
+                  <code class="rm-code">meetings/</code>
+                  <span class="rm-file-desc">회의록 저장 폴더</span>
+                </div>
+                <div class="rm-file-item">
+                  <code class="rm-code">voices/</code>
+                  <span class="rm-file-desc">목소리 프로파일 저장</span>
+                </div>
+                <div class="rm-file-item">
+                  <code class="rm-code">cert.pem / key.pem</code>
+                  <span class="rm-file-desc">HTTPS 인증서 (최초 실행 시)</span>
+                </div>
+                <div class="rm-file-item">
+                  <code class="rm-code">vocab_ko/ja/en.json</code>
+                  <span class="rm-file-desc">누적 도메인 어휘</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="rm-file-group">
+              <div class="rm-group-label rfg-cfg">📝 설정 파일</div>
+              <div class="rm-file-list">
+                <div class="rm-file-item">
+                  <code class="rm-code">glossary.json</code>
+                  <span class="rm-file-desc">회사 용어집 — 자동 추출 + 수동 관리</span>
+                </div>
+                <div class="rm-file-item">
+                  <code class="rm-code">settings.json</code>
+                  <span class="rm-file-desc">설정 저장 — Obsidian vault · Whisper 모델 등</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <section id="rs2">
+          <h2>🚀 시작하기</h2>
+          <h3>macOS</h3>
+          <div class="rm-pre">1. install.command 더블클릭 (최초 1회)
+2. start.command 더블클릭
+→ 브라우저 자동으로 https://localhost:5555 열림</div>
+          <h3>Windows</h3>
+          <div class="rm-pre">1. install_windows.bat 더블클릭 (최초 1회)
+2. start_windows.bat 더블클릭
+→ 브라우저 자동으로 https://localhost:5555 열림</div>
+          <div class="rm-note"><strong>HTTPS</strong>: 최초 실행 시 자체 서명 인증서가 자동 생성됩니다. 브라우저 경고 화면에서 <strong>"고급 → 계속 진행"</strong>을 클릭하면 됩니다. HTTPS가 활성화되어야 모바일에서도 마이크 사용이 가능합니다.</div>
+          <div class="rm-warn"><strong>Windows 주의</strong>: 설치 중 "Add Python to PATH" 옵션 필수 체크</div>
+        </section>
+
+        <section id="rs3">
+          <h2>🎛️ 회의 설정</h2>
+          <h3>언어 선택</h3>
+          <table class="rm-table">
+            <thead><tr><th>언어</th><th>설명</th></tr></thead>
+            <tbody>
+              <tr><td>🇰🇷 한국어</td><td>한국어 STT 교정, 자동개입, 요약</td></tr>
+              <tr><td>🇯🇵 日本語</td><td>일본어 STT 교정, 자동개입, 요약</td></tr>
+              <tr><td>🇺🇸 English</td><td>영어 STT 교정, 자동개입, 요약</td></tr>
+              <tr><td>🌐 자동 감지</td><td>Whisper가 발화별 언어 자동 감지, Claude도 동일 언어로 응답</td></tr>
+            </tbody>
+          </table>
+          <h3>회의 템플릿</h3>
+          <table class="rm-table">
+            <thead><tr><th>템플릿</th><th>최적화된 요약 형식</th></tr></thead>
+            <tbody>
+              <tr><td>💼 일반 회의</td><td>요약 / 결정사항 / 미결사항 / 액션아이템</td></tr>
+              <tr><td>🔄 데일리 스크럼</td><td>팀원별 현황 / 블로커 / 즉시 액션아이템</td></tr>
+              <tr><td>🤝 1on1</td><td>주요 논의 / 성장 피드백 / 목표 / 액션아이템</td></tr>
+              <tr><td>🏗️ 기획 회의</td><td>배경 / 결정사항 / 요구사항 / 일정 / 리스크</td></tr>
+              <tr><td>📅 주간 회의</td><td>주간 성과 / 완료 / 진행 중 / 이슈 / 다음 주 계획</td></tr>
+            </tbody>
+          </table>
+          <h3>인식 정확도 설정</h3>
+          <table class="rm-table">
+            <thead><tr><th>모드</th><th>청크 크기</th><th>특징</th></tr></thead>
+            <tbody>
+              <tr><td>⚡ 빠름</td><td>5초</td><td>짧은 발화 빠른 표시, 소음에 민감</td></tr>
+              <tr><td>⚖️ 균형</td><td>8초</td><td>기본값, 일반 회의에 적합</td></tr>
+              <tr><td>🎯 정확</td><td>15초</td><td>긴 문장 정확도 높음, 15초 딜레이</td></tr>
+            </tbody>
+          </table>
+          <div class="rm-note">webrtcvad 설치 시 발화가 끝나는 순간 즉시 전사합니다 (청크 크기와 무관).</div>
+        </section>
+
+        <section id="rs4">
+          <h2>🎛️ 회의 모드</h2>
+          <h3>모드 1 — 목소리 사전 등록</h3>
+          <p>그 자리에서 예시 문장을 읽으면 목소리가 등록되고, 회의 중 자동으로 누가 말했는지 식별합니다.</p>
+          <div class="rm-pre">참여자 이름 입력 → 예시 문장 읽기 (5초) → 등록 완료
+모든 참여자 등록 후 → 회의 시작</div>
+          <h3>모드 2 — 저장된 프로파일 자동 식별</h3>
+          <p>이전에 등록된 목소리 파일(<code class="rm-code">voices/</code>)을 자동으로 불러와 식별합니다. 처음 만나는 목소리는 <code class="rm-code">미등록1</code>, <code class="rm-code">미등록2</code>로 표시되고, 회의 종료 후 이름을 등록할 수 있습니다.</p>
+        </section>
+
+        <section id="rs5">
+          <h2>🌐 웹 UI 기능</h2>
+          <table class="rm-table">
+            <thead><tr><th>기능</th><th>설명</th></tr></thead>
+            <tbody>
+              <tr><td>실시간 대화 표시</td><td>말하는 순간 화자 구분하여 표시</td></tr>
+              <tr><td>실시간 부분 전사</td><td>3초마다 현재 발화 미리 표시 (흐릿하게)</td></tr>
+              <tr><td>STT 교정 표시</td><td>자동 교정된 발화에 ✏️ 표시 (원문 교체)</td></tr>
+              <tr><td>발화 수동 편집</td><td>발화 더블클릭 → 직접 텍스트 수정 → MD 파일 반영</td></tr>
+              <tr><td>📝 텍스트 메모</td><td>회의 중 타이핑으로 메모 추가 (음성 없이)</td></tr>
+              <tr><td>🌙 다크/라이트 모드</td><td>헤더 버튼으로 즉시 전환, 설정 자동 저장</td></tr>
+              <tr><td>Claude 스피너</td><td>Claude 응답 처리 중 헤더에 스피너 표시</td></tr>
+              <tr><td>⏸ 일시정지 / ▶️ 재개</td><td>회의 중 녹음 일시 중단</td></tr>
+              <tr><td>Claude 요청</td><td>텍스트 입력으로 Claude에게 질문</td></tr>
+              <tr><td>회의 종료 + 요약</td><td>AI가 자동으로 요약/결정사항/액션아이템 생성</td></tr>
+              <tr><td>자동 제목 생성</td><td>종료 시 Claude가 회의 내용 기반 제목 자동 생성</td></tr>
+              <tr><td>이전 회의 브리핑</td><td>회의 시작 시 이전 미결 사항 자동 표시</td></tr>
+              <tr><td>📋 액션 아이템 대시보드</td><td>전체 회의록의 액션아이템 담당자별 집계</td></tr>
+              <tr><td>📅 Google Calendar 등록</td><td>다음 회의를 캘린더에 자동 등록</td></tr>
+              <tr><td>회의록 뷰어</td><td>마크다운 렌더링으로 이전 회의 확인</td></tr>
+              <tr><td>회의록 검색</td><td>키워드 / 발화자 / 날짜 필터</td></tr>
+              <tr><td>요약 모달</td><td>이전 회의 AI 분석 팝업으로 확인</td></tr>
+              <tr><td>목소리 프로파일 관리</td><td>등록/삭제/샘플 수 확인</td></tr>
+              <tr><td>회의록 삭제</td><td>휴지통으로 안전하게 이동</td></tr>
+              <tr><td>드래그 분할선</td><td>대화창과 회의록 뷰어 너비 조절</td></tr>
+              <tr><td>📖 용어집</td><td>회사 고유 용어 자동 추출 및 관리</td></tr>
+              <tr><td>🔧 시스템 상태</td><td>의존성 패키지 설치 여부 한눈에 확인</td></tr>
+              <tr><td>비정상 종료 복구</td><td>크래시 후 미완료 회의 AI 요약 사후 생성</td></tr>
+              <tr><td>모바일 지원</td><td>반응형 UI, HTTPS로 모바일 마이크 사용 가능</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="rs6">
+          <h2>🔄 자동 기능</h2>
+          <table class="rm-table">
+            <thead><tr><th>기능</th><th>주기</th><th>설명</th></tr></thead>
+            <tbody>
+              <tr><td>STT 교정</td><td>매 발화</td><td>Claude가 음성인식 오류 자동 수정</td></tr>
+              <tr><td>오디오 정규화</td><td>매 청크</td><td>RMS 기반 볼륨 편차 자동 보정</td></tr>
+              <tr><td>소음 제거</td><td>매 청크</td><td>noisereduce로 배경 소음 필터링 (에어컨/환풍기 등)</td></tr>
+              <tr><td>발화 경계 감지</td><td>매 프레임</td><td>webrtcvad로 발화 끝 즉시 감지 후 전사</td></tr>
+              <tr><td>이전 회의 브리핑</td><td>회의 시작 시</td><td>미결 사항 & 팔로업 필요 액션아이템 표시</td></tr>
+              <tr><td>주제 자동 분류</td><td>90초</td><td>주제 변경 시 MD에 구간 헤더 삽입</td></tr>
+              <tr><td>자동 개입</td><td>패턴 감지</td><td>담당자/마감/요약 등 자동 답변 (30초 쿨다운)</td></tr>
+              <tr><td>품질 피드백</td><td>10분</td><td>시간 배분/주의사항/제안</td></tr>
+              <tr><td>AI 회의 분석</td><td>종료 시</td><td>요약/결정/미결/액션아이템 자동 생성</td></tr>
+              <tr><td>자동 제목 생성</td><td>종료 시</td><td>Claude가 15자 이내 회의 제목 자동 생성</td></tr>
+              <tr><td>도메인 어휘 누적</td><td>종료 시</td><td>회의 중 등장한 전문 용어를 파일에 축적하여 인식률 향상</td></tr>
+              <tr><td>용어집 자동 추출</td><td>종료 시</td><td>Claude가 팀/프로젝트 고유 용어를 감지해 glossary.json에 추가</td></tr>
+              <tr><td>YAML frontmatter</td><td>회의 시작 시</td><td>Obsidian Dataview 호환 메타데이터 자동 생성</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="rs7">
+          <h2>🟣 Obsidian 연동</h2>
+          <p>회의록이 Obsidian 친화적 형식으로 저장됩니다.</p>
+          <h3>MD 파일 구조</h3>
+          <div class="rm-pre">---
+tags:
+  - meeting
+date: 2026-04-06
+time: "14:30"
+participants: ["Jerry", "민수"]
+template: general
+language: ko
+status: in-progress   ← 회의 종료 시 complete로 자동 변경
+title: "API 성능 개선 논의"   ← 자동 생성
+---</div>
+          <p>
+            <strong>Dataview 쿼리</strong> 및 <strong>Properties 패널</strong>에서 바로 사용 가능.<br>
+            Claude 응답: <code class="rm-code">&gt; [!NOTE]</code> callout 형식<br>
+            품질 피드백: <code class="rm-code">&gt; [!TIP]+</code> callout 형식
+          </p>
+          <h3>Vault 자동 복사</h3>
+          <p>설정(⚙️)에서 Obsidian Vault 경로를 지정하면 회의 종료 시 vault에 자동 복사됩니다.</p>
+        </section>
+
+        <section id="rs8">
+          <h2>📋 액션 아이템 대시보드</h2>
+          <p>헤더의 <strong>📋 액션 아이템</strong> 버튼을 클릭하면 최근 30개 회의록에서 AI가 생성한 모든 액션 아이템을 담당자별로 집계합니다. 각 항목의 상태(미완료 ○ / 진행 중 ◑ / 완료 ✓)를 클릭하여 변경할 수 있습니다.</p>
+        </section>
+
+        <section id="rs9">
+          <h2>📖 회사 용어집</h2>
+          <p>헤더의 <strong>📖 용어집</strong> 버튼으로 관리합니다.</p>
+          <ul style="color:var(--t2);padding-left:18px;line-height:2">
+            <li><strong>자동 추출</strong>: 회의 종료 시 Claude가 팀/프로젝트 고유 용어를 감지해 자동 추가</li>
+            <li><strong>수동 추가/삭제</strong>: UI에서 용어와 설명을 직접 입력</li>
+            <li><strong>Whisper 연동</strong>: 등록된 용어가 음성 인식 힌트로 자동 포함되어 인식 정확도 향상</li>
+            <li><strong>저장 위치</strong>: <code class="rm-code">glossary.json</code></li>
+          </ul>
+        </section>
+
+        <section id="rs10">
+          <h2>🔧 시스템 상태 패널</h2>
+          <p>헤더의 <strong>🔧 시스템</strong> 버튼으로 의존성 패키지 설치 상태를 확인합니다.</p>
+          <table class="rm-table">
+            <thead><tr><th>항목</th><th>역할</th></tr></thead>
+            <tbody>
+              <tr><td>Claude CLI</td><td>AI 교정/요약/개입 핵심 기능</td></tr>
+              <tr><td>faster-whisper</td><td>음성 인식 엔진</td></tr>
+              <tr><td>resemblyzer</td><td>화자 식별</td></tr>
+              <tr><td>noisereduce</td><td>배경 소음 제거</td></tr>
+              <tr><td>webrtcvad</td><td>정밀 발화 경계 감지 (선택)</td></tr>
+              <tr><td>sounddevice / PortAudio</td><td>마이크 입력</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="rs11">
+          <h2>🤖 Whisper 모델 선택</h2>
+          <p>설정(⚙️)에서 Whisper 모델을 변경할 수 있습니다. 변경 후 서버 재시작이 필요합니다.</p>
+          <table class="rm-table">
+            <thead><tr><th>모델</th><th>정확도</th><th>속도</th></tr></thead>
+            <tbody>
+              <tr><td><code class="rm-code">large-v3</code></td><td>최고</td><td>보통</td></tr>
+              <tr><td><code class="rm-code">large-v3-turbo</code></td><td>large-v3와 유사</td><td>2배 빠름 <span class="rm-badge" style="background:rgba(74,222,128,0.12);color:#86efac;border:1px solid rgba(74,222,128,0.2)">기본값</span></td></tr>
+              <tr><td><code class="rm-code">medium</code></td><td>보통</td><td>빠름</td></tr>
+              <tr><td><code class="rm-code">small</code></td><td>낮음</td><td>매우 빠름</td></tr>
+            </tbody>
+          </table>
+          <h3>자동 가속 선택</h3>
+          <table class="rm-table">
+            <thead><tr><th>환경</th><th>가속</th></tr></thead>
+            <tbody>
+              <tr><td>Apple Silicon (M1/M2/M3)</td><td>CPU ARM 최적화</td></tr>
+              <tr><td>NVIDIA GPU (Windows/Linux)</td><td>CUDA float16</td></tr>
+              <tr><td>Intel / AMD CPU</td><td>int8 CPU</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="rs12">
+          <h2>🎤 목소리 프로파일</h2>
+          <p>목소리를 등록하면 <code class="rm-code">voices/{이름}/</code> 폴더에 저장됩니다. 회의를 거듭할수록 샘플이 누적되어 인식 정확도가 높아집니다.</p>
+          <div class="rm-pre">voices/
+├── Jerry/
+│   ├── 20260401_143012_123456.npy
+│   └── 20260408_091523_654321.npy   ← 회의마다 자동 누적
+└── 민수/
+    └── 20260401_143015_333444.npy</div>
+          <div class="rm-note">최대 100개 샘플 보관 (초과 시 오래된 것 자동 삭제)</div>
+        </section>
+
+        <section id="rs13">
+          <h2>🔍 회의록 검색 (터미널)</h2>
+          <div class="rm-pre">python3 search.py 백엔드              # 키워드 검색
+python3 search.py API --speaker Jerry  # 특정 발화자 필터
+python3 search.py --date 2026-04       # 날짜 필터
+python3 search.py --list               # 전체 회의 목록
+python3 search.py --summary            # 최근 5개 요약 보기</div>
+        </section>
+
+        <section id="rs14">
+          <h2>⚙️ 주요 설정값</h2>
+          <p><code class="rm-code">meeting.py</code> 상단에서 직접 수정 가능합니다.</p>
+          <table class="rm-table">
+            <thead><tr><th>설정</th><th>기본값</th><th>설명</th></tr></thead>
+            <tbody>
+              <tr><td><code class="rm-code">WHISPER_MODEL</code></td><td><code class="rm-code">large-v3-turbo</code></td><td>음성인식 모델 (UI 설정에서도 변경 가능)</td></tr>
+              <tr><td><code class="rm-code">CHUNK_SECONDS</code></td><td><code class="rm-code">8</code></td><td>기본 청크 크기 (UI에서 변경 가능)</td></tr>
+              <tr><td><code class="rm-code">ENROLL_SECONDS</code></td><td><code class="rm-code">5</code></td><td>목소리 등록 녹음 시간</td></tr>
+              <tr><td><code class="rm-code">MAX_VOICE_SAMPLES</code></td><td><code class="rm-code">100</code></td><td>인당 최대 목소리 샘플 수</td></tr>
+              <tr><td><code class="rm-code">IDENTIFY_THRESH</code></td><td><code class="rm-code">0.78</code></td><td>목소리 매칭 임계값 (높을수록 엄격)</td></tr>
+              <tr><td><code class="rm-code">VOCAB_MIN_CNT</code></td><td><code class="rm-code">5</code></td><td>이 횟수 이상 등장한 단어를 Whisper 힌트에 포함</td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section id="rs15">
+          <h2>🛠️ 문제 해결</h2>
+
+          <h3>브라우저 HTTPS 경고</h3>
+          <div class="rm-pre">"연결이 안전하지 않습니다" 화면에서
+→ 고급 → localhost(안전하지 않음)로 계속 이동 클릭
+(자체 서명 인증서이므로 정상)</div>
+
+          <h3>HTTPS 인증서 재생성</h3>
+          <div class="rm-pre">rm cert.pem key.pem
+# 서버 재시작 시 자동 재생성</div>
+
+          <h3>cryptography 미설치 시 HTTP로 실행됨</h3>
+          <div class="rm-pre">pip3 install cryptography   # macOS/Linux
+pip install cryptography    # Windows</div>
+
+          <h3>마이크 권한 오류 (macOS)</h3>
+          <div class="rm-pre">시스템 설정 → 개인정보 보호 → 마이크 → 터미널 체크</div>
+
+          <h3>마이크 권한 오류 (Windows)</h3>
+          <div class="rm-pre">설정 → 개인 정보 → 마이크 → 앱 마이크 액세스 허용</div>
+
+          <h3>모바일에서 마이크가 안 될 때</h3>
+          <div class="rm-pre">HTTPS가 필요합니다.
+1. cryptography 설치 후 서버 재시작
+2. 브라우저에서 https://[PC IP]:5555 접속
+3. 인증서 경고 → 계속 진행</div>
+
+          <h3>모델 다운로드 실패</h3>
+          <div class="rm-pre">python3 -c "from faster_whisper import WhisperModel; WhisperModel('large-v3', device='cpu', compute_type='int8')"</div>
+
+          <h3>발화자 구분 안 됨 (resemblyzer 없음)</h3>
+          <div class="rm-pre">pip3 install resemblyzer  # macOS/Linux
+pip install resemblyzer   # Windows</div>
+
+          <h3>발화 감지 정확도 낮음 (webrtcvad 없음)</h3>
+          <div class="rm-pre">pip3 install webrtcvad   # macOS/Linux
+pip install webrtcvad    # Windows</div>
+
+          <h3>소음 제거 안 됨 (noisereduce 없음)</h3>
+          <div class="rm-pre">pip3 install noisereduce  # macOS/Linux
+pip install noisereduce   # Windows</div>
+
+          <h3>포트 충돌</h3>
+          <div class="rm-pre"># macOS/Linux
+lsof -i :5555
+kill -9 [PID]
+
+# Windows
+netstat -ano | findstr :5555
+taskkill /PID [PID] /F</div>
+
+          <h3>Claude CLI 미설치</h3>
+          <div class="rm-pre">npm install -g @anthropic-ai/claude-code</div>
+
+        </section>
+
+      </div><!-- /readme-content -->
+    </div><!-- /readme-body -->
+  </div><!-- /readme-drawer -->
+</div><!-- /readme-overlay -->
+
+<script>
+// 탭 전환 (섹션 내에서만 동작)
+function switchTab(btn, id) {
+  var section = btn.closest('section');
+  section.querySelectorAll('.itab').forEach(function(b) { b.classList.remove('active'); });
+  section.querySelectorAll('.install-panel').forEach(function(p) { p.classList.remove('active'); });
+  btn.classList.add('active');
+  document.getElementById('tab-' + id).classList.add('active');
+}
+
+// 다크/라이트 토글
+function toggleTheme() {
+  var isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  document.documentElement.setAttribute('data-theme', isLight ? 'dark' : 'light');
+  document.getElementById('theme-btn').textContent = isLight ? '🌙' : '☀️';
+  localStorage.setItem('guide-theme', isLight ? 'dark' : 'light');
+}
+// 저장된 테마 복원 (없으면 시스템 설정 따름)
+(function() {
+  var saved = localStorage.getItem('guide-theme');
+  var preferLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+  var theme = saved || (preferLight ? 'light' : 'dark');
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('theme-btn').textContent = theme === 'light' ? '☀️' : '🌙';
+})();
+
+// 스크롤 시 nav 활성화
+var sections = document.querySelectorAll('section[id]');
+var navLinks = document.querySelectorAll('.nav-links a');
+window.addEventListener('scroll', function() {
+  var scrollY = window.pageYOffset;
+  sections.forEach(function(section) {
+    var top = section.offsetTop - 80;
+    var bottom = top + section.offsetHeight;
+    if (scrollY >= top && scrollY < bottom) {
+      var id = section.getAttribute('id');
+      navLinks.forEach(function(a) {
+        a.style.color = a.getAttribute('href') === '#' + id ? 'var(--t1)' : '';
+        a.style.background = a.getAttribute('href') === '#' + id ? 'var(--btn-ghost-bg)' : '';
+      });
+    }
+  });
+}, { passive: true });
+
+// 부드러운 스크롤 (nav 높이 보정)
+document.querySelectorAll('a[href^="#"]').forEach(function(a) {
+  a.addEventListener('click', function(e) {
+    var target = document.querySelector(this.getAttribute('href'));
+    if (target) {
+      e.preventDefault();
+      window.scrollTo({ top: target.offsetTop - 60, behavior: 'smooth' });
+    }
+  });
+});
+
+// FAQ 아코디언
+function toggleFaq(btn) {
+  var item = btn.closest('.faq-item');
+  item.classList.toggle('open');
+}
+
+// README 드로어
+function openReadme() {
+  document.getElementById('readme-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeReadme() {
+  document.getElementById('readme-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function closeReadmeOutside(e) {
+  if (e.target === document.getElementById('readme-overlay')) closeReadme();
+}
+// ESC 키로 닫기
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeReadme();
+});
+
+// TOC 클릭 → readme-body 스크롤
+function tocClick(e, id) {
+  e.preventDefault();
+  var el = document.getElementById(id);
+  var body = document.getElementById('readme-overlay').querySelector('.readme-body');
+  if (el && body) {
+    body.scrollTo({ top: el.offsetTop - 16, behavior: 'smooth' });
+  }
+}
+
+</script>
+</body>
+</html>
