@@ -2354,6 +2354,33 @@ function stopStatsResize() {
   document.removeEventListener('mouseup', stopStatsResize);
 }
 
+// ── 회의 중 미등록 화자 즉시 등록 ─────────────────────────
+function registerUnknownInline(label) {
+  var name = prompt(label + '의 이름을 입력하세요:');
+  if (!name || !name.trim()) return;
+  name = name.trim();
+  fetch('/api/register_unknown', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({label: label, name: name})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if (d.ok) {
+        setSbar('✅ ' + name + ' 등록 완료 (' + d.samples + '개 샘플)','green');
+        // 화면의 해당 화자 뱃지 모두 업데이트
+        document.querySelectorAll('.badge').forEach(function(b) {
+          if (b.textContent === label) {
+            b.textContent = name;
+            b.style.cursor = '';
+            b.style.textDecoration = '';
+            b.removeAttribute('onclick');
+            b.title = '';
+          }
+        });
+      } else {
+        setSbar('❌ 등록 실패: ' + (d.msg || ''),'red');
+      }
+    });
+}
+
 function openDeps() { document.getElementById('deps-modal').classList.add('open'); loadDeps(); }
 function closeDeps() { document.getElementById('deps-modal').classList.remove('open'); }
 function loadDeps() {
@@ -2611,7 +2638,9 @@ function addLine(speaker, text, time, isCorrection, originalText) {
   div.innerHTML =
     '<span class="tline-time">'+esc(time)+'</span>' +
     '<div class="tline-body">' +
-      '<span class="badge '+getColor(speaker)+'">'+esc(speaker)+'</span>' +
+      '<span class="badge '+getColor(speaker)+'"' +
+        (speaker.indexOf('미등록') === 0 ? ' onclick="registerUnknownInline(\''+esc(speaker)+'\')" style="cursor:pointer;text-decoration:underline dotted" title="클릭하여 이름 등록"' : '') +
+      '>'+esc(speaker)+'</span>' +
       '<span class="line-text">'+esc(text)+'</span>' +
       '<span class="corr-mark" style="display:none" title="STT 교정됨">✏️</span>' +
     '</div>';

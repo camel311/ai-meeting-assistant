@@ -75,7 +75,7 @@ fi
 # ── 3. pip 패키지 설치 ────────────────────────────────────
 step "필수 패키지 설치 중... (수 분 소요될 수 있습니다)"
 
-PACKAGES="flask flask-socketio sounddevice numpy send2trash faster-whisper resemblyzer noisereduce cryptography torch pyannote.audio asteroid omegaconf"
+PACKAGES="flask sounddevice numpy send2trash faster-whisper resemblyzer noisereduce cryptography torch pyannote.audio asteroid omegaconf"
 
 # mlx-whisper 선택 설치 (Apple Silicon GPU 가속, 2~5배 빠름)
 if [[ "$(uname -m)" == "arm64" ]]; then

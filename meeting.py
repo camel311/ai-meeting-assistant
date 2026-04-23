@@ -1036,7 +1036,8 @@ def claude_run(prompt: str, timeout: int = CLAUDE_TIMEOUT, retries: int = 2,
     model: "" → 기본 모델(Sonnet), CLAUDE_FAST_MODEL → Haiku.
     동시 호출 3개 제한 — 초과 시 대기.
     """
-    if not _claude_semaphore.acquire(timeout=timeout):
+    acquired = _claude_semaphore.acquire(timeout=timeout)
+    if not acquired:
         return ""
     try:
         global _claude_fail_count, _CLAUDE_CLI_MISSING

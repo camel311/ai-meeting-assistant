@@ -45,7 +45,7 @@ echo  🔧  필수 패키지 설치 중... (수 분 소요)
 echo  ──────────────────────────────────────────
 echo.
 
-set PACKAGES=flask flask-socketio sounddevice numpy send2trash faster-whisper resemblyzer noisereduce webrtcvad cryptography torch pyannote.audio asteroid omegaconf
+set PACKAGES=flask sounddevice numpy send2trash faster-whisper resemblyzer noisereduce webrtcvad cryptography torch pyannote.audio asteroid omegaconf
 
 for %%p in (%PACKAGES%) do (
     echo  📦  %%p 설치 중...
