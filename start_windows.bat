@@ -7,21 +7,21 @@ echo.
 echo  🎙️  AI 회의 어시스턴트 시작 중...
 echo.
 
-:: ── Python 확인 ─────────────────────────────────────────
-python --version > nul 2>&1
-if errorlevel 1 (
-    echo  ❌  Python을 찾을 수 없습니다.
+:: ── 가상환경 확인 ───────────────────────────────────────
+if not exist ".venv\Scripts\python.exe" (
+    echo  ❌  가상환경이 없습니다.
     echo      install_windows.bat 를 먼저 실행해주세요.
     echo.
     pause
     exit /b 1
 )
+set PYTHON=.venv\Scripts\python.exe
 
 :: ── 필수 패키지 확인 ────────────────────────────────────
-python -c "import flask, faster_whisper, sounddevice, numpy" > nul 2>&1
+%PYTHON% -c "import flask, faster_whisper, sounddevice, numpy" > nul 2>&1
 if errorlevel 1 (
     echo  ❌  설치되지 않은 패키지가 있습니다.
-    echo      install_windows.bat 를 먼저 실행해주세요.
+    echo      install_windows.bat 를 다시 실행해주세요.
     echo.
     pause
     exit /b 1
@@ -44,7 +44,7 @@ echo  │  종료하려면 이 창을 닫거나 Ctrl+C       │
 echo  └─────────────────────────────────────────┘
 echo.
 
-python server.py
+%PYTHON% server.py
 
 echo.
 echo  서버가 종료됐습니다.

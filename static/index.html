@@ -2639,7 +2639,7 @@ function addLine(speaker, text, time, isCorrection, originalText) {
     '<span class="tline-time">'+esc(time)+'</span>' +
     '<div class="tline-body">' +
       '<span class="badge '+getColor(speaker)+'"' +
-        (speaker.indexOf('미등록') === 0 ? ' onclick="registerUnknownInline(\''+esc(speaker)+'\')" style="cursor:pointer;text-decoration:underline dotted" title="클릭하여 이름 등록"' : '') +
+        (speaker.indexOf('미등록') === 0 ? ' onclick="registerUnknownInline(this.dataset.label)" data-label="'+esc(speaker)+'" style="cursor:pointer;text-decoration:underline dotted" title="클릭하여 이름 등록"' : '') +
       '>'+esc(speaker)+'</span>' +
       '<span class="line-text">'+esc(text)+'</span>' +
       '<span class="corr-mark" style="display:none" title="STT 교정됨">✏️</span>' +

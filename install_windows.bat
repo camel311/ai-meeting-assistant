@@ -31,12 +31,21 @@ if errorlevel 1 (
 )
 for /f "tokens=*" %%v in ('python --version 2^>^&1') do echo  ✅  %%v
 
-:: ── 2. pip 업그레이드 ──────────────────────────────────
+:: ── 2. 가상환경 생성 ──────────────────────────────────
 echo.
 echo  ──────────────────────────────────────────
-echo  🔧  pip 업그레이드 중...
+echo  🔧  가상환경 설정 중...
 echo  ──────────────────────────────────────────
-python -m pip install --upgrade pip -q
+if exist ".venv\Scripts\python.exe" (
+    echo  ✅  가상환경 이미 존재 (.venv\^)
+) else (
+    echo  📦  가상환경 생성 중...
+    python -m venv .venv
+    echo  ✅  가상환경 생성 완료
+)
+set PYTHON=.venv\Scripts\python.exe
+
+%PYTHON% -m pip install --upgrade pip -q
 
 :: ── 3. 필수 패키지 설치 ─────────────────────────────────
 echo.
@@ -49,7 +58,7 @@ set PACKAGES=flask sounddevice numpy send2trash faster-whisper resemblyzer noise
 
 for %%p in (%PACKAGES%) do (
     echo  📦  %%p 설치 중...
-    python -m pip install %%p -q
+    %PYTHON% -m pip install %%p -q
     if errorlevel 1 (
         echo  ⚠️  %%p 설치 실패 (일부 기능 제한될 수 있음^)
     ) else (
@@ -87,7 +96,7 @@ echo  📥  large-v3-turbo 모델 (~1.5GB) 다운로드 중...
 echo  ⏳  인터넷 속도에 따라 3~10분 소요될 수 있습니다.
 echo.
 
-python -c "from faster_whisper import WhisperModel; print('  모델 다운로드 시작...'); WhisperModel('large-v3-turbo', device='cpu', compute_type='int8'); print('  ✅  모델 다운로드 완료')"
+%PYTHON% -c "from faster_whisper import WhisperModel; print('  모델 다운로드 시작...'); WhisperModel('large-v3-turbo', device='cpu', compute_type='int8'); print('  ✅  모델 다운로드 완료')"
 
 :: ── 5. LLM 백엔드 확인 ─────────────────────────────────
 echo.

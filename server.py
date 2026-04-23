@@ -619,10 +619,10 @@ def api_slack_send():
             webhook_url, data=payload,
             headers={"Content-Type": "application/json"}, method="POST",
         )
-        resp = urllib.request.urlopen(req, timeout=10)
-        if resp.status == 200:
-            return jsonify({"ok": True})
-        return jsonify({"ok": False, "msg": f"Slack 응답: {resp.status}"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            if resp.status == 200:
+                return jsonify({"ok": True})
+            return jsonify({"ok": False, "msg": f"Slack 응답: {resp.status}"})
     except Exception as e:
         return jsonify({"ok": False, "msg": str(e)})
 

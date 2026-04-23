@@ -507,7 +507,7 @@ def build_whisper_prompt(language: str = "ko") -> str:
                     parts = line.split("|", 2)
                     if len(parts) < 3:
                         continue
-                        utterance = parts[2].strip()
+                    utterance = parts[2].strip()
                     for w in re.findall(word_pat, utterance):
                         if w.lower() not in stopwords:
                             word_counter[w] += 1
@@ -916,10 +916,10 @@ def _detect_llm_backend() -> str:
     # 2순위: Ollama
     try:
         import urllib.request
-        req = urllib.request.urlopen(f"{OLLAMA_BASE_URL}/api/tags", timeout=3)
-        if req.status == 200:
-            print(f"[INFO] LLM 백엔드: Ollama ({OLLAMA_BASE_URL}, 모델: {OLLAMA_MODEL})", file=sys.stderr)
-            return "ollama"
+        with urllib.request.urlopen(f"{OLLAMA_BASE_URL}/api/tags", timeout=3) as req:
+            if req.status == 200:
+                print(f"[INFO] LLM 백엔드: Ollama ({OLLAMA_BASE_URL}, 모델: {OLLAMA_MODEL})", file=sys.stderr)
+                return "ollama"
     except Exception:
         pass
 
@@ -934,8 +934,8 @@ def _pull_ollama_model_async():
     def _pull():
         # 모델 목록 확인
         try:
-            resp = urllib.request.urlopen(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
-            tags = _json.loads(resp.read())
+            with urllib.request.urlopen(f"{OLLAMA_BASE_URL}/api/tags", timeout=5) as resp:
+                tags = _json.loads(resp.read())
             names = [m.get("name", "") for m in tags.get("models", [])]
             if any(OLLAMA_MODEL in n for n in names):
                 return  # 이미 있음
@@ -951,7 +951,8 @@ def _pull_ollama_model_async():
                 headers={"Content-Type": "application/json"},
                 method="POST",
             )
-            urllib.request.urlopen(req, timeout=600)
+            with urllib.request.urlopen(req, timeout=600):
+                pass
             print(f"[INFO] Ollama 모델 다운로드 완료: {OLLAMA_MODEL}", file=sys.stderr)
         except Exception as e:
             print(f"[ERROR] Ollama 모델 다운로드 실패: {e}", file=sys.stderr)
@@ -2088,7 +2089,7 @@ class MeetingRecorder:
         try:
             content = self.md_path.read_text(encoding="utf-8")
             import re as _re
-            lines = content.split("\n")
+            lines = content.splitlines()
             corrected = 0
             for i, line in enumerate(lines):
                 m = _re.match(r'\*\*(\d{2}:\d{2}:\d{2})\*\* \| \*\*(.+?)\*\*: (.+)', line)
@@ -2181,7 +2182,7 @@ class MeetingRecorder:
             sub_audio = audio[s_start:s_end]
 
             if len(sub_audio) < MIN_EMBED_SECONDS * SAMPLE_RATE:
-                results.append((seg_text, self._last_speaker or "?", None))
+                results.append((seg_text, self._last_speaker or "미등록", None))
                 continue
 
             speaker, embed = self._identify_speaker(sub_audio)
@@ -2241,7 +2242,7 @@ class MeetingRecorder:
         content = self.md_path.read_text(encoding="utf-8")
 
         # 대화 부분만 추출
-        lines = content.split("\n")
+        lines = content.splitlines()
         pattern = _re.compile(r'\*\*(\d{2}:\d{2}:\d{2})\*\* \| \*\*(.+?)\*\*: (.+)')
         utterances = []
         for i, line in enumerate(lines):
@@ -2316,7 +2317,7 @@ class MeetingRecorder:
         """회의 종료 후 연속 같은 화자 발화를 하나로 병합 (가독성 향상)."""
         import re as _re
         content = self.md_path.read_text(encoding="utf-8")
-        lines = content.split("\n")
+        lines = content.splitlines()
         pattern = _re.compile(r'\*\*(\d{2}:\d{2}:\d{2})\*\* \| \*\*(.+?)\*\*: (.+)')
 
         merged_lines = []
@@ -2388,6 +2389,9 @@ class MeetingRecorder:
             for label, embeds in self.unknown_clusters.items()
             if embeds  # 임베딩이 있는 것만
         ]
+
+        # 백그라운드 교정/개입 스레드 완료 대기 (MD 파일 충돌 방지)
+        time.sleep(2)
 
         # 전체 오디오 MP3 저장
         audio_file = None
@@ -2532,10 +2536,23 @@ class MeetingRecorder:
             pass
 
     def register_unknown(self, label: str, name: str):
-        """미등록 화자 프로파일 등록"""
+        """미등록 화자 프로파일 등록 + MD 파일 화자명 교체"""
         if label in self.unknown_clusters:
             for embed in self.unknown_clusters[label]:
                 self.vpm.save_embedding(name, embed)
+        # MD 파일에서 화자명도 교체
+        if self.md_path and self.md_path.exists():
+            try:
+                content = self.md_path.read_text(encoding="utf-8")
+                updated = content.replace(f"**{label}**:", f"**{name}**:")
+                if updated != content:
+                    self.md_path.write_text(updated, encoding="utf-8")
+            except Exception:
+                pass
+        # 실시간 프로파일에도 등록 (이후 발화부터 즉시 매칭)
+        if label in self.unknown_clusters and self.unknown_clusters[label]:
+            mean_embed = np.mean(self.unknown_clusters[label], axis=0)
+            self.profiles[name] = mean_embed
 
     # ── 일시정지 / 재개 ────────────────────────────────────
     def pause(self):

@@ -22,7 +22,9 @@
 ```
 meeting_assistant/
 ├── install.command       ← Mac 설치 (더블클릭, 최초 1회)
+├── install_windows.bat   ← Windows 설치 (더블클릭, 최초 1회)
 ├── start.command         ← Mac 실행 (더블클릭)
+├── start_windows.bat     ← Windows 실행 (더블클릭)
 ├── meeting.py            ← 엔진 (핵심 로직)
 ├── server.py             ← 웹 서버 (meeting.py import)
 ├── search.py             ← 회의록 키워드 검색
