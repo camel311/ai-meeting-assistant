@@ -778,11 +778,34 @@ def _filter_hallucination(text: str) -> str:
     if not text:
         return text
 
-    # 1. 단일/이중 문자 연속 반복: "ㅇㅇㅇㅇ", "QA QA QA QA QA"
-    if re.search(r'(.{1,3})\1{9,}', text):
+    # 1. 한글 자모/특수문자 연속 반복: "ㅇㅇㅇㅇ", "ㅎㅎㅎ", "ㅋㅋㅋ" 등
+    if re.search(r'([ㄱ-ㅎㅏ-ㅣ])\1{4,}', text):
         return ''
 
-    # 2. 쉼표·공백 구분 반복 토큰 — 토큰이 전체의 40% 이상 차지하면 제거
+    # 2. 모든 문자 연속 반복: "abcabc", "QA QA QA", "őlőlől"
+    if re.search(r'(.{1,5})\1{5,}', text):
+        return ''
+
+    # 3. "..." 반복 패턴: "몰리고... 그 정도... 그리고... 그리고..."
+    ellipsis_count = text.count('...')
+    if ellipsis_count >= 4:
+        # "..." 제거 후 내용만 추출
+        cleaned = re.sub(r'\.{2,}', '.', text).strip()
+        if len(cleaned) < 10:
+            return ''
+        return cleaned
+
+    # 4. 문장 단위 반복 감지: 같은 문장이 2회 이상 반복
+    sentences = re.split(r'[.!?]\s*', text)
+    sentences = [s.strip() for s in sentences if len(s.strip()) > 5]
+    if len(sentences) >= 3:
+        from collections import Counter
+        sent_counts = Counter(sentences)
+        most_common_sent, sent_count = sent_counts.most_common(1)[0]
+        if sent_count >= 2 and sent_count / len(sentences) >= 0.5:
+            return most_common_sent
+
+    # 5. 쉼표·공백 구분 반복 토큰 — 토큰이 전체의 40% 이상 차지하면 제거
     tokens = [t.strip() for t in re.split(r'[,\s?!]+', text) if t.strip()]
     if len(tokens) >= 6:
         from collections import Counter
@@ -793,11 +816,34 @@ def _filter_hallucination(text: str) -> str:
         if sum(1 for t in tokens if t.isdigit()) / len(tokens) >= 0.8:
             return ''
 
-    # 3. 공백 구분 반복 (2회 이상): "QA QA" → "QA"
+    # 6. 공백 구분 반복 (2회 이상): "QA QA" → "QA"
     text = re.sub(r'\b(\w+)( \1){1,}\b', r'\1', text)
 
-    # 4. 쉼표/물음표 구분 반복 (3회 이상): "이렇게, 이렇게, 이렇게" → "이렇게"
+    # 7. 쉼표/물음표 구분 반복 (3회 이상): "이렇게, 이렇게, 이렇게" → "이렇게"
     text = re.sub(r'(.{1,}?)[,?]\s*(?:\1[,?]\s*){2,}', r'\1', text)
+
+    # 8. 너무 짧은 반복 (5자 이하가 3회 이상): "네. 네. 네." → "네"
+    text = re.sub(r'(.{1,5})[.\s]+(?:\1[.\s]+){2,}', r'\1', text)
+
+    # 9. 의미 없는 짧은 텍스트 (3자 이하)
+    stripped = re.sub(r'[.\s,?!…]+', '', text)
+    if len(stripped) <= 2:
+        return ''
+
+    # 10. "발화..." 같은 Whisper 메타 텍스트
+    _meta_hallucinations = {"발화", "자막", "구독", "좋아요", "알림", "시청", "감사합니다",
+                            "구독과 좋아요", "영상", "채널", "다음 영상", "소리"}
+    if stripped in _meta_hallucinations:
+        return ''
+
+    # 11. 한국어가 아닌 외국어만으로 된 짧은 텍스트 (무의미한 할루시네이션)
+    korean_chars = len(re.findall(r'[가-힣]', text))
+    total_alpha = len(re.findall(r'[a-zA-Zㄱ-ㅎㅏ-ㅣ가-힣]', text))
+    if total_alpha > 0 and korean_chars == 0 and len(text) < 30:
+        # 영문 기술 용어는 유지 (대문자 포함, 알파벳 비율 높음)
+        upper_ratio = len(re.findall(r'[A-Z]', text)) / max(1, total_alpha)
+        if upper_ratio < 0.3:  # 소문자 위주 외국어 → 할루시네이션
+            return ''
 
     return text
 
@@ -1527,14 +1573,14 @@ class MeetingRecorder:
                 continue
             audio = np.concatenate(buf, axis=0).flatten()
             buf.clear()
+            # 전체 오디오 저장 (무음 포함 — 재생 시 타임스탬프 정확도 보장)
+            self._full_audio_chunks.append(audio.copy())
             if audio.std() < SILENCE_THRESH:
                 continue
             if not _vad_has_speech(audio, self._noise_floor):
                 continue
-            # 전체 오디오 저장 (회의 후 화자 재매칭용)
-            self._full_audio_chunks.append(audio.copy())
             # 겹침 발화 분리 — 겹침 감지 시 분리 후 각각 처리
-            if HAS_SEPARATOR and _has_overlap(audio):
+            if False and HAS_SEPARATOR and _has_overlap(audio):  # 비활성화: 중복 발화 생성 이슈
                 separated = _separate_speakers(audio)
                 if len(separated) > 1:
                     for sep_audio in separated:
@@ -1632,6 +1678,11 @@ class MeetingRecorder:
             if not text or set(text) <= {'.', ' ', '·'}:
                 continue
 
+            # 이전 발화와 동일한 텍스트 중복 방지
+            if hasattr(self, '_last_text') and text == self._last_text:
+                continue
+            self._last_text = text
+
             # 다음 청크를 위한 컨텍스트 프롬프트 업데이트 (마지막 50자)
             self._context_prompt = text[-50:]
 
@@ -1642,8 +1693,8 @@ class MeetingRecorder:
                 threading.Thread(target=self.claude_request,
                                  args=(f"[음성 요청] {_q}",), daemon=True).start()
 
-            # 단어 타임스탬프 기반 청크 내 화자 교체 감지
-            multi_speakers = self._split_by_word_gaps(audio, text, _word_times)
+            # 단어 타임스탬프 기반 청크 내 화자 교체 감지 (비활성화: 중복 발화 생성 이슈)
+            multi_speakers = None  # self._split_by_word_gaps(audio, text, _word_times)
             if multi_speakers and len(multi_speakers) > 1:
                 # 여러 화자가 감지된 경우 각각 별도 라인으로 출력
                 for sub_text, sub_speaker, sub_embed in multi_speakers:
@@ -1725,13 +1776,13 @@ class MeetingRecorder:
     # ── 발화자 식별 ────────────────────────────────────────
     def _identify_speaker(self, audio: np.ndarray) -> Tuple[str, Optional[np.ndarray]]:
         if not HAS_RESEMBLYZER:
-            return self.participants[0] if self.participants else "참여자", None
+            return self.participants[0] if self.participants else "미등록", None
 
         audio_sec = len(audio) / SAMPLE_RATE
 
         # 짧은 발화는 임베딩 추출 건너뜀 (부정확한 결과 방지)
         if audio_sec < MIN_EMBED_SECONDS:
-            return self._last_speaker or (self.participants[0] if self.participants else "?"), None
+            return self._last_speaker or (self.participants[0] if self.participants else "미등록"), None
 
         # 화자 변경 감지 (segmentation) — 변경 없으면 이전 화자 유지
         if HAS_PYANNOTE_SEG and _pyannote_segmenter is not None and self._last_speaker:
@@ -1752,7 +1803,7 @@ class MeetingRecorder:
 
         embed = self.vpm.embed_audio(audio)
         if embed is None:
-            return self.participants[0] if self.participants else "?", None
+            return self.participants[0] if self.participants else "미등록", None
 
         # ── 모드 1 ───────────────────────────────────────
         if self.mode == 1:
@@ -1800,12 +1851,16 @@ class MeetingRecorder:
         if best_s >= CLUSTER_THRESH:
             self.unknown_clusters[best_n].append(embed)
             return best_n
-        # 클러스터 최대 20개, 각 클러스터 샘플 최대 50개 제한
+        # 클러스터 최대 10개, 각 클러스터 샘플 최대 50개 제한
         for lbl in list(self.unknown_clusters):
             if len(self.unknown_clusters[lbl]) > 50:
                 self.unknown_clusters[lbl] = self.unknown_clusters[lbl][-50:]
-        if len(self.unknown_clusters) >= 20:
-            return f"미등록{len(self.unknown_clusters)+1}"
+        if len(self.unknown_clusters) >= 10:
+            # 최대치 도달 시 가장 가까운 기존 클러스터에 할당
+            if best_n:
+                self.unknown_clusters[best_n].append(embed)
+                return best_n
+            return f"미등록{len(self.unknown_clusters)}"
         new_label = f"미등록{len(self.unknown_clusters)+1}"
         self.unknown_clusters[new_label] = [embed]
         self.emit("unknown_speaker", {"label": new_label})

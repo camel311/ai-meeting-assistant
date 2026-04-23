@@ -674,15 +674,15 @@ footer {
     <h1>회의를 기록하고<br>AI가 분석합니다</h1>
     <p class="sub">마이크 음성을 실시간으로 전사하고, 화자를 식별하고, Claude AI가 교정·요약·자동 개입까지 처리하는 로컬 회의 기록 시스템입니다.</p>
     <div class="hero-btns">
-      <a href="#setup" class="btn-hero btn-hero-primary">🤖 AI 설정 시작하기</a>
+      <a href="https://github.com/camel311/ai-meeting-assistant" target="_blank" class="btn-hero btn-hero-primary">GitHub에서 시작하기</a>
       <a href="#features" class="btn-hero btn-hero-ghost">기능 살펴보기 →</a>
     </div>
     <div class="tech-pills">
       <span class="tech-pill">Whisper large-v3-turbo</span>
-      <span class="tech-pill">resemblyzer 화자 식별</span>
-      <span class="tech-pill">Claude AI 분석</span>
-      <span class="tech-pill">webrtcvad</span>
-      <span class="tech-pill">Flask + SSE</span>
+      <span class="tech-pill">ECAPA-TDNN 화자 식별</span>
+      <span class="tech-pill">ConvTasNet 겹침 분리</span>
+      <span class="tech-pill">Claude / Ollama AI</span>
+      <span class="tech-pill">Silero VAD</span>
       <span class="tech-pill">로컬 실행 · 개인정보 보호</span>
     </div>
 
@@ -1870,7 +1870,7 @@ obsidian-vault/회의록/meeting_20260407_143022.md  <span class="comment"># Obs
         <h2 style="font-size:28px;margin-bottom:12px">지금 바로 시작하세요</h2>
         <p style="color:var(--t2);font-size:15px;max-width:460px;margin:0 auto 28px;line-height:1.7">모든 회의가 Markdown으로 기록되고, Claude가 분석하고,<br>팀이 함께 활용할 수 있습니다.</p>
         <div class="hero-btns">
-          <a href="#setup" class="btn-hero btn-hero-primary">🤖 AI 설정하기</a>
+          <a href="https://github.com/camel311/ai-meeting-assistant" target="_blank" class="btn-hero btn-hero-primary">GitHub에서 시작하기</a>
           <a href="#install" class="btn-hero btn-hero-ghost">설치 가이드 보기</a>
         </div>
       </div>
@@ -1881,7 +1881,15 @@ obsidian-vault/회의록/meeting_20260407_143022.md  <span class="comment"># Obs
 <!-- ═══════════════ FOOTER ═══════════════ -->
 <footer>
   <div>AI 회의 어시스턴트 — 로컬 실행, 외부 전송 없음</div>
-  <div style="margin-top:6px">Whisper · Claude · resemblyzer · Flask · sounddevice</div>
+  <div style="margin-top:6px">Whisper · ECAPA-TDNN · ConvTasNet · Claude / Ollama · Flask</div>
+  <div style="margin-top:16px;display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap">
+    <a href="https://github.com/camel311/ai-meeting-assistant" target="_blank" style="color:var(--acc);font-size:13px">GitHub</a>
+    <span style="color:var(--t3)">·</span>
+    <a href="https://github.com/camel311/ai-meeting-assistant/issues" target="_blank" style="color:var(--acc);font-size:13px">Issue 등록</a>
+    <span style="color:var(--t3)">·</span>
+    <a href="mailto:dlwogjs3111@gmail.com" style="color:var(--acc);font-size:13px">dlwogjs3111@gmail.com</a>
+  </div>
+  <div style="margin-top:10px;font-size:11px;color:var(--t3)">의견이나 버그 리포트는 GitHub Issue 또는 이메일로 보내주세요.</div>
 </footer>
 
 <!-- ═══════════════ README 드로어 ═══════════════ -->

@@ -665,9 +665,20 @@ body.readonly-mode #transcript { flex:1; }
     <button id="memo-btn" onclick="submitMemo()" class="btn btn-ghost" disabled style="font-size:11px;flex-shrink:0">기록</button>
   </div>
   <!-- 발화 통계 바 (회의 중 실시간) -->
-  <div id="speaking-stats" class="hidden" style="border-top:1px solid var(--bd);padding:8px 16px;background:var(--surface);flex-shrink:0">
-    <div style="font-size:10px;color:var(--t3);margin-bottom:5px;font-weight:600">🎙️ 발화 비율</div>
-    <div id="stats-bars"></div>
+  <div id="speaking-stats" class="hidden" style="border-top:1px solid var(--bd);background:var(--surface);flex-shrink:0">
+    <!-- 드래그 리사이즈 핸들 -->
+    <div id="stats-resize-handle" style="height:6px;cursor:ns-resize;display:flex;align-items:center;justify-content:center" onmousedown="startStatsResize(event)">
+      <div style="width:30px;height:3px;background:var(--bd2);border-radius:2px"></div>
+    </div>
+    <div style="padding:0 16px 8px 16px">
+      <div onclick="toggleStatsCollapse()" style="font-size:10px;color:var(--t3);margin-bottom:5px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none">
+        <span>🎙️ 발화 비율</span>
+        <span id="stats-toggle" style="font-size:9px">▼</span>
+      </div>
+      <div id="stats-bars-wrap" style="overflow-y:auto;max-height:120px">
+        <div id="stats-bars"></div>
+      </div>
+    </div>
   </div>
   <div id="sbar"></div>
   <!-- 오디오 재생 바 -->
@@ -2189,7 +2200,8 @@ function playMeetingAudio(fEnc) {
     document.getElementById('audio-bar').classList.remove('hidden');
     document.getElementById('audio-seek').max = Math.floor(_audio.duration);
     _updateAudioTime();
-    _buildAudioLineMap();
+    // DOM 렌더링 완료 후 타임스탬프 맵 빌드 (viewMeeting fetch 완료 대기)
+    setTimeout(_buildAudioLineMap, 500);
   };
   _audio.ontimeupdate = function() {
     var seek = document.getElementById('audio-seek');
@@ -2249,22 +2261,40 @@ function _updateAudioTime() {
 
 function _buildAudioLineMap() {
   _audioLines = [];
-  // v-content 또는 transcript 영역에서 타임스탬프가 있는 줄 수집
-  var container = document.getElementById('v-content') || document.getElementById('transcript');
+  // 모든 가능한 컨테이너에서 타임스탬프 수집
+  var container = document.getElementById('main-view-content')
+                || document.getElementById('v-content')
+                || document.getElementById('transcript');
   if (!container) return;
-  var els = container.querySelectorAll('[data-time]');
-  if (!els.length) {
-    // data-time 없으면 bold 태그에서 HH:MM:SS 패턴 추출
-    var allBolds = container.querySelectorAll('strong, b');
-    allBolds.forEach(function(b) {
-      var m = b.textContent.match(/(\d{2}):(\d{2}):(\d{2})/);
-      if (m) {
-        var sec = parseInt(m[1])*3600 + parseInt(m[2])*60 + parseInt(m[3]);
-        var lineEl = b.closest('p') || b.parentElement;
-        if (lineEl) _audioLines.push({time_sec: sec, element: lineEl});
-      }
-    });
+
+  // strong/b 태그에서 HH:MM:SS 패턴 추출
+  var allBolds = container.querySelectorAll('strong, b');
+  allBolds.forEach(function(b) {
+    var m = b.textContent.match(/(\d{2}):(\d{2}):(\d{2})/);
+    if (m) {
+      var sec = parseInt(m[1])*3600 + parseInt(m[2])*60 + parseInt(m[3]);
+      // 가장 가까운 블록 요소 찾기
+      var lineEl = b.closest('p') || b.closest('li') || b.parentElement;
+      if (lineEl) _audioLines.push({time_sec: sec, element: lineEl});
+    }
+  });
+
+  // p 태그 없이 텍스트 노드에 직접 있는 경우도 체크
+  if (!_audioLines.length) {
+    var html = container.innerHTML;
+    var timeMatches = html.match(/<strong>(\d{2}:\d{2}:\d{2})<\/strong>/g);
+    if (timeMatches) {
+      // fallback: 모든 직계 자식 요소에서 타임스탬프 검색
+      Array.from(container.children).forEach(function(child) {
+        var tm = child.textContent.match(/(\d{2}):(\d{2}):(\d{2})/);
+        if (tm) {
+          var sec = parseInt(tm[1])*3600 + parseInt(tm[2])*60 + parseInt(tm[3]);
+          _audioLines.push({time_sec: sec, element: child});
+        }
+      });
+    }
   }
+
   // 첫 번째 타임스탬프를 기준 오프셋으로
   if (_audioLines.length > 0) {
     var baseTime = _audioLines[0].time_sec;
@@ -2293,6 +2323,35 @@ function _clearHighlight() {
     l.element.style.background = '';
     l.element.style.borderRadius = '';
   });
+}
+
+// ── 발화 비율 접기/펼치기 + 리사이즈 ─────────────────────
+var _statsCollapsed = false;
+function toggleStatsCollapse() {
+  _statsCollapsed = !_statsCollapsed;
+  document.getElementById('stats-bars-wrap').style.display = _statsCollapsed ? 'none' : '';
+  document.getElementById('stats-toggle').textContent = _statsCollapsed ? '▶' : '▼';
+}
+var _statsResizing = false, _statsStartY = 0, _statsStartH = 0;
+function startStatsResize(e) {
+  _statsResizing = true;
+  _statsStartY = e.clientY;
+  var wrap = document.getElementById('stats-bars-wrap');
+  _statsStartH = wrap.offsetHeight;
+  document.addEventListener('mousemove', doStatsResize);
+  document.addEventListener('mouseup', stopStatsResize);
+  e.preventDefault();
+}
+function doStatsResize(e) {
+  if (!_statsResizing) return;
+  var diff = _statsStartY - e.clientY;
+  var newH = Math.max(40, Math.min(400, _statsStartH + diff));
+  document.getElementById('stats-bars-wrap').style.maxHeight = newH + 'px';
+}
+function stopStatsResize() {
+  _statsResizing = false;
+  document.removeEventListener('mousemove', doStatsResize);
+  document.removeEventListener('mouseup', stopStatsResize);
 }
 
 function openDeps() { document.getElementById('deps-modal').classList.add('open'); loadDeps(); }
