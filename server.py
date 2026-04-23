@@ -7,7 +7,7 @@ meeting.py 엔진 import 사용.
 접속: http://localhost:5555
 """
 
-import threading, time, json, queue, re
+import os, threading, time, json, queue, re
 from collections import deque
 from pathlib import Path
 from datetime import datetime, timezone
@@ -27,7 +27,8 @@ from meeting import (
     MeetingRecorder, VoiceProfileManager,
     SAMPLE_RATE, OUTPUT_DIR, VOICES_DIR, HAS_RESEMBLYZER, ENROLL_SECONDS,
     _load_vocab, _VOCAB_MIN_CNT, HAS_NOISEREDUCE,
-    load_glossary, save_glossary,
+    load_glossary, save_glossary, _load_silero_vad, _load_pyannote_embedder,
+    _load_separator,
 )
 
 _BASE_DIR = OUTPUT_DIR.parent
@@ -89,6 +90,9 @@ class SSEBroadcaster:
         event = {"type": type_, "data": data,
                  "ts": datetime.now().strftime("%H:%M:%S")}
         self._history.append(event)
+        # 회의 종료 시 히스토리 클리어 (새로고침 시 이전 이벤트 재생 방지)
+        if type_ == "finished":
+            self._history.clear()
         with self._lock:
             dead = []
             for q in self._clients:
@@ -113,6 +117,12 @@ if _startup_settings.get("whisper_model"):
     _meeting_mod.WHISPER_MODEL = _startup_settings["whisper_model"]
 print("🤖 Whisper 모델 로딩 중...")
 MeetingRecorder.load_model()
+print("🎙️ Silero VAD 로딩 중...")
+_load_silero_vad()
+print("🔊 pyannote 화자 임베딩 로딩 중...")
+_load_pyannote_embedder()
+print("🔈 겹침 발화 분리 모델 로딩 중...")
+_load_separator()
 _encoder = VoiceEncoder() if HAS_RESEMBLYZER else None
 _vpm     = VoiceProfileManager(_encoder)
 _pending: Dict[str, np.ndarray] = {}   # 등록 대기 임베딩
@@ -153,12 +163,17 @@ def api_status():
     with _lock:
         running = bool(recorder and recorder.running)
         md_file = recorder.md_path.name if running and recorder.md_path else ""
+        speaking_stats = recorder._build_speaking_stats() if running and recorder else []
     incomplete = [] if running else _find_incomplete_meetings()
     return jsonify({"status": "running" if running else "idle",
                     "md_file": md_file,
                     "has_resemblyzer": HAS_RESEMBLYZER,
                     "has_noisereduce": HAS_NOISEREDUCE,
-                    "incomplete_meetings": incomplete})
+                    "incomplete_meetings": incomplete,
+                    "speaking_stats": [
+                        {"name": n, "seconds": s, "ratio": r}
+                        for n, s, r in speaking_stats
+                    ]})
 
 # ── 마이크 장치 목록 ─────────────────────────────────────
 @app.route("/api/devices")
@@ -179,15 +194,16 @@ def api_devices():
 @app.route("/api/deps")
 def api_deps():
     import subprocess as _sp
+    from meeting import _LLM_BACKEND, OLLAMA_MODEL, OLLAMA_BASE_URL
     deps = []
-    # Claude CLI
-    try:
-        r = _sp.run(["claude", "--version"], capture_output=True, text=True, timeout=5)
-        claude_ok = r.returncode == 0
-        claude_ver = r.stdout.strip().split("\n")[0] if claude_ok else ""
-    except Exception:
-        claude_ok, claude_ver = False, ""
-    deps.append({"name": "Claude CLI", "ok": claude_ok, "detail": claude_ver or "미설치 — brew install claude 또는 npm install -g @anthropic-ai/claude-code"})
+
+    # LLM 백엔드 (Claude CLI 또는 Ollama)
+    if _LLM_BACKEND == "claude":
+        deps.append({"name": "LLM 백엔드", "ok": True, "detail": "Claude Code CLI"})
+    elif _LLM_BACKEND == "ollama":
+        deps.append({"name": "LLM 백엔드", "ok": True, "detail": f"Ollama ({OLLAMA_MODEL})"})
+    else:
+        deps.append({"name": "LLM 백엔드", "ok": False, "detail": "Claude CLI / Ollama 모두 미감지 — AI 기능 비활성"})
 
     # faster-whisper
     try:
@@ -289,7 +305,6 @@ def api_start():
             device_id=device_id,
             extra_device_ids=extra_device_ids,
         )
-        # 웹 서버는 recorder 내부 오디오 스트림 사용 (_start_audio=True 기본값)
         threading.Thread(target=recorder.start, daemon=True).start()
 
     return jsonify({"ok": True})
@@ -586,6 +601,134 @@ def api_search_semantic():
     threading.Thread(target=_semantic_search, daemon=True).start()
     return jsonify({"ok": True})
 
+# ── Slack 회의 요약 전송 ──────────────────────────────────
+@app.route("/api/slack/send", methods=["POST"])
+def api_slack_send():
+    settings = _load_settings()
+    webhook_url = settings.get("slack_webhook", "").strip()
+    if not webhook_url:
+        return jsonify({"ok": False, "msg": "설정에서 Slack Webhook URL을 먼저 입력해주세요."})
+    text = (request.json or {}).get("text", "").strip()
+    if not text:
+        return jsonify({"ok": False, "msg": "전송할 내용이 없습니다."})
+    try:
+        import urllib.request, json as _json
+        blocks = _md_to_slack_blocks(text)
+        payload = _json.dumps({"blocks": blocks, "text": "📝 회의 요약"}).encode()
+        req = urllib.request.Request(
+            webhook_url, data=payload,
+            headers={"Content-Type": "application/json"}, method="POST",
+        )
+        resp = urllib.request.urlopen(req, timeout=10)
+        if resp.status == 200:
+            return jsonify({"ok": True})
+        return jsonify({"ok": False, "msg": f"Slack 응답: {resp.status}"})
+    except Exception as e:
+        return jsonify({"ok": False, "msg": str(e)})
+
+
+def _md_to_slack_blocks(md: str) -> list:
+    """Markdown 회의 요약을 Slack Block Kit 형식으로 변환."""
+    blocks = []
+    current_section = []
+
+    def flush_section():
+        if current_section:
+            text = "\n".join(current_section).strip()
+            if text:
+                blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": text}})
+            current_section.clear()
+
+    for line in md.split("\n"):
+        line = line.rstrip()
+        # ## 헤더 → Slack header block
+        if line.startswith("## "):
+            flush_section()
+            blocks.append({"type": "divider"})
+            blocks.append({"type": "header", "text": {"type": "plain_text", "text": line[3:].strip()}})
+            continue
+        # # 헤더
+        if line.startswith("# "):
+            flush_section()
+            blocks.append({"type": "header", "text": {"type": "plain_text", "text": line[2:].strip()}})
+            continue
+        # 테이블 헤더/구분선 건너뜀
+        if line.startswith("|--") or line.startswith("| 담당자"):
+            flush_section()
+            continue
+        # 테이블 행 → 리스트 형태로 변환
+        if line.startswith("|") and "|" in line[1:]:
+            cells = [c.strip() for c in line.strip("|").split("|")]
+            if len(cells) >= 2 and cells[0]:
+                current_section.append(f"• *{cells[0]}*: {cells[1]}" +
+                                       (f" (마감: {cells[2]})" if len(cells) > 2 and cells[2] else ""))
+            continue
+        # **bold** → *bold* (Slack mrkdwn)
+        converted = line.replace("**", "*")
+        # - 리스트
+        if converted.startswith("- "):
+            converted = "• " + converted[2:]
+        current_section.append(converted)
+
+    flush_section()
+    return blocks
+
+# ── AI 대화형 회의록 검색 ─────────────────────────────────
+@app.route("/api/search/ai", methods=["POST"])
+def api_search_ai():
+    """자연어 질문으로 회의록을 검색하고 AI가 답변을 생성"""
+    data = request.json or {}
+    question = data.get("question", "").strip()
+    if not question:
+        return jsonify({"ok": False, "msg": "질문이 없습니다"})
+
+    files = sorted(OUTPUT_DIR.glob("meeting_*.md"), reverse=True)[:15]
+    if not files:
+        return jsonify({"ok": True, "answer": "검색할 회의록이 없습니다.", "sources": []})
+
+    def _ai_search():
+        from meeting import claude_run
+
+        # 각 파일에서 발화 내용 추출
+        all_content = []
+        for f in files:
+            try:
+                content = f.read_text(encoding="utf-8")
+                lines = [l for l in content.splitlines()
+                         if l.startswith("**") and "|" in l][:50]
+                if lines:
+                    all_content.append(f"=== {f.name} ===\n" + "\n".join(lines))
+            except Exception:
+                pass
+
+        if not all_content:
+            sse.push("ai_search_result", {"answer": "회의록에서 발화 내용을 찾을 수 없습니다.", "sources": []})
+            return
+
+        context = "\n\n".join(all_content)[:6000]
+        prompt = (
+            f"당신은 회의록 검색 AI입니다. 아래 회의록 데이터를 기반으로 사용자의 질문에 답변하세요.\n"
+            f"답변은 간결하고 구체적으로, 발화자와 날짜를 포함해서 답변하세요.\n"
+            f"관련 내용이 없으면 '관련 내용을 찾지 못했습니다'라고 답하세요.\n\n"
+            f"--- 회의록 데이터 ---\n{context}\n\n"
+            f"--- 질문 ---\n{question}\n\n답변:"
+        )
+        result = claude_run(prompt, timeout=30, retries=1)
+        if not result:
+            sse.push("ai_search_result", {"answer": "AI 응답을 받지 못했습니다. 다시 시도해주세요.", "sources": []})
+            return
+
+        # 답변에서 언급된 파일명 추출
+        sources = []
+        for f in files:
+            if f.name in result or f.stem in result:
+                sources.append(f.name)
+
+        sse.push("ai_search_result", {"answer": result, "sources": sources, "question": question})
+
+    threading.Thread(target=_ai_search, daemon=True).start()
+    return jsonify({"ok": True})
+
 # ── 설정 ─────────────────────────────────────────────────
 @app.route("/api/settings", methods=["GET", "POST"])
 def api_settings():
@@ -670,6 +813,17 @@ def api_meeting_content(filename):
 
     return jsonify({"ok": True, "content": path.read_text(encoding="utf-8")})
 
+@app.route("/api/meetings/<filename>/audio")
+def api_meeting_audio(filename):
+    """회의 녹음 파일 서빙 (MP3 우선, WAV 폴백)."""
+    base = filename.replace(".md", "")
+    for ext in (".mp3", ".wav"):
+        audio_path = OUTPUT_DIR / (base + ext)
+        if audio_path.exists():
+            mime = "audio/mpeg" if ext == ".mp3" else "audio/wav"
+            return send_from_directory(str(OUTPUT_DIR), base + ext, mimetype=mime)
+    return jsonify({"ok": False, "msg": "녹음 파일 없음"}), 404
+
 @app.route("/api/meetings/<filename>/line", methods=["PATCH"])
 def api_meeting_line(filename):
     path = OUTPUT_DIR / filename
@@ -684,6 +838,13 @@ def api_meeting_line(filename):
         content = path.read_text(encoding="utf-8")
         updated = content.replace(old_text, new_text, 1)
         path.write_text(updated, encoding="utf-8")
+        # 사용자 교정 학습 — 발화 텍스트 부분만 추출해서 저장
+        import re as _re
+        old_m = _re.search(r'\*\*: (.+)$', old_text)
+        new_m = _re.search(r'\*\*: (.+)$', new_text)
+        if old_m and new_m:
+            from meeting import save_correction
+            save_correction(old_m.group(1).strip(), new_m.group(1).strip())
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"ok": False, "msg": str(e)})

@@ -8,7 +8,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎙</text></svg>">
 <style>
 :root {
   --bg:      #09090b;
@@ -391,6 +392,7 @@ body.readonly-mode #transcript { flex:1; }
         <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
       </svg>
     </div>
+    <span id="llm-badge" style="font-size:10px;padding:3px 8px;border-radius:6px;font-weight:600;display:none"></span>
 
     <button onclick="openStats()" class="btn btn-ghost" style="font-size:11px;padding:6px 11px;gap:5px" title="회의 통계">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="12" width="4" height="8"/><rect x="10" y="8" width="4" height="12"/><rect x="17" y="4" width="4" height="16"/></svg>
@@ -550,6 +552,18 @@ body.readonly-mode #transcript { flex:1; }
       <button onclick="cancelMeeting()" class="btn btn-ghost" style="flex:1;font-size:11px">✕ 취소</button>
     </div>
 
+    <!-- 참석자 QR 코드 (회의 중 표시) -->
+    <div id="meeting-qr-section" style="margin-bottom:12px;padding:10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.15);border-radius:8px;text-align:center">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:10px;color:var(--t3);font-weight:600">📱 참석자 QR</span>
+        <button onclick="toggleMeetingQR()" id="qr-toggle-btn" class="btn-icon" style="font-size:10px;color:var(--t3)" title="QR 접기/펼치기">▲</button>
+      </div>
+      <div id="meeting-qr-body">
+        <canvas id="meeting-qr-canvas" style="border-radius:6px;background:#fff;padding:6px;max-width:120px;max-height:120px"></canvas>
+        <div id="meeting-qr-url" style="font-size:9px;color:var(--t3);margin-top:4px;word-break:break-all;cursor:pointer" onclick="copyShareUrl(this)" title="클릭하여 복사"></div>
+      </div>
+    </div>
+
     <!-- 녹음 중 마이크 레벨 -->
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
       <span style="font-size:10px;color:var(--t3);flex-shrink:0">🎤 입력</span>
@@ -603,6 +617,20 @@ body.readonly-mode #transcript { flex:1; }
       <button onclick="clearSearch()" style="background:none;border:none;font-size:11px;color:var(--t3);cursor:pointer;text-align:left;padding:0;font-family:inherit">✕ 검색 초기화</button>
     </div>
     <div id="search-results" class="hidden" style="margin-bottom:8px"></div>
+    <!-- AI 대화형 검색 -->
+    <div style="margin-bottom:8px;border:1px solid var(--bd);border-radius:8px;overflow:hidden">
+      <button onclick="toggleAISearch()" style="width:100%;background:rgba(99,102,241,0.06);border:none;padding:7px 10px;font-size:11px;color:var(--t2);cursor:pointer;display:flex;align-items:center;gap:6px;font-family:inherit">
+        <span>🤖</span><span style="font-weight:600">AI 회의록 질문</span>
+        <span id="ai-search-arrow" style="margin-left:auto;font-size:9px;color:var(--t3)">▼</span>
+      </button>
+      <div id="ai-search-panel" style="display:none;padding:8px;border-top:1px solid var(--bd)">
+        <textarea id="ai-search-input" rows="2" placeholder="예) 지난달에 예산 관련 누가 뭐라고 했어?" style="width:100%;font-size:11px;margin-bottom:6px;resize:vertical;box-sizing:border-box" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();doAISearch();}"></textarea>
+        <button onclick="doAISearch()" id="ai-search-btn" class="btn btn-success" style="width:100%;font-size:11px;padding:6px">
+          🤖 AI에게 질문
+        </button>
+        <div id="ai-search-result" style="display:none;margin-top:8px;padding:8px;background:rgba(99,102,241,0.04);border-radius:6px;font-size:11px;color:var(--t2);line-height:1.6;white-space:pre-wrap;max-height:200px;overflow-y:auto"></div>
+      </div>
+    </div>
     <div id="folder-tabs" style="display:flex;gap:2px;margin-bottom:8px;overflow-x:auto"></div>
     <div id="meetings-list" style="display:flex;flex-direction:column;gap:1px"></div>
   </div>
@@ -614,9 +642,11 @@ body.readonly-mode #transcript { flex:1; }
 
   <!-- 미등록 화자 패널 -->
   <div id="unknown-panel" class="hidden" style="border-bottom:1px solid var(--bd);background:rgba(251,191,36,0.04);padding:12px 16px;flex-shrink:0">
-    <div style="font-size:12px;font-weight:600;color:var(--warn-text);margin-bottom:8px">👤 미등록 화자를 프로파일에 등록하시겠습니까?</div>
-    <div id="unknown-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
-    <button onclick="finishUnknown()" class="btn btn-ghost" style="font-size:11px">모두 건너뛰기</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-size:12px;font-weight:600;color:var(--warn-text)">👤 미등록 화자를 프로파일에 등록하시겠습니까?</div>
+      <button onclick="finishUnknown()" class="btn btn-ghost" style="font-size:11px;flex-shrink:0">전체 건너뛰기 ⏭</button>
+    </div>
+    <div id="unknown-list" style="display:flex;flex-direction:column;gap:6px"></div>
   </div>
 
   <div id="transcript" style="flex:1;overflow-y:auto;padding:20px 28px">
@@ -634,7 +664,27 @@ body.readonly-mode #transcript { flex:1; }
       onkeydown="if(event.key==='Enter')submitMemo()"/>
     <button id="memo-btn" onclick="submitMemo()" class="btn btn-ghost" disabled style="font-size:11px;flex-shrink:0">기록</button>
   </div>
+  <!-- 발화 통계 바 (회의 중 실시간) -->
+  <div id="speaking-stats" class="hidden" style="border-top:1px solid var(--bd);padding:8px 16px;background:var(--surface);flex-shrink:0">
+    <div style="font-size:10px;color:var(--t3);margin-bottom:5px;font-weight:600">🎙️ 발화 비율</div>
+    <div id="stats-bars"></div>
+  </div>
   <div id="sbar"></div>
+  <!-- 오디오 재생 바 -->
+  <div id="audio-bar" class="hidden" style="border-top:1px solid var(--bd);padding:8px 16px;background:var(--surface);flex-shrink:0">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+      <button onclick="toggleAudioPlay()" id="audio-play-btn" style="background:none;border:none;font-size:16px;cursor:pointer;color:var(--t1);padding:0">▶</button>
+      <input type="range" id="audio-seek" min="0" max="100" value="0" style="flex:1;height:4px;accent-color:#818cf8;cursor:pointer" oninput="seekAudio(this.value)">
+      <span id="audio-time" style="font-size:10px;color:var(--t3);min-width:80px;text-align:right">0:00 / 0:00</span>
+      <span id="audio-speed-btns" style="display:flex;gap:2px;margin-left:4px">
+        <button onclick="setAudioSpeed(0.5)" class="audio-spd-btn" data-speed="0.5" style="background:none;border:1px solid var(--bd);border-radius:4px;font-size:9px;padding:2px 5px;cursor:pointer;color:var(--t3)">0.5x</button>
+        <button onclick="setAudioSpeed(1)" class="audio-spd-btn active" data-speed="1" style="background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);border-radius:4px;font-size:9px;padding:2px 5px;cursor:pointer;color:var(--acc)">1x</button>
+        <button onclick="setAudioSpeed(1.5)" class="audio-spd-btn" data-speed="1.5" style="background:none;border:1px solid var(--bd);border-radius:4px;font-size:9px;padding:2px 5px;cursor:pointer;color:var(--t3)">1.5x</button>
+        <button onclick="setAudioSpeed(2)" class="audio-spd-btn" data-speed="2" style="background:none;border:1px solid var(--bd);border-radius:4px;font-size:9px;padding:2px 5px;cursor:pointer;color:var(--t3)">2x</button>
+      </span>
+      <button onclick="closeAudioPlayer()" style="background:none;border:none;font-size:14px;cursor:pointer;color:var(--t3)">✕</button>
+    </div>
+  </div>
 </div>
 
 <!-- 드래그 분할선 -->
@@ -852,6 +902,18 @@ body.readonly-mode #transcript { flex:1; }
         </select>
       </div>
 
+      <!-- Slack 연동 -->
+      <div>
+        <div style="font-weight:600;font-size:12px;color:var(--t1);margin-bottom:4px;display:flex;align-items:center;gap:6px">
+          <span style="font-size:16px">💬</span> Slack 연동
+        </div>
+        <div style="font-size:11px;color:var(--t3);margin-bottom:8px">회의 요약을 Slack 채널로 전송할 수 있습니다.</div>
+        <div>
+          <div style="font-size:11px;color:var(--t2);margin-bottom:3px">Webhook URL</div>
+          <input id="s-slack-webhook" placeholder="https://hooks.slack.com/services/T.../B.../xxx" style="width:100%;font-size:11px"/>
+        </div>
+      </div>
+
     </div>
     <div style="padding:12px 20px;border-top:1px solid var(--bd);display:flex;justify-content:flex-end;gap:8px">
       <button onclick="closeSettings()" class="btn btn-ghost" style="font-size:12px;padding:7px 16px">취소</button>
@@ -886,6 +948,7 @@ body.readonly-mode #transcript { flex:1; }
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <span id="modal-title" style="font-size:11px;color:var(--t3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:200px"></span>
+        <button id="modal-slack-btn" onclick="sendSummaryToSlack()" class="btn btn-ghost" style="font-size:12px;padding:5px 12px" title="Slack 전송">💬 Slack</button>
         <button id="modal-copy-btn" onclick="copyModalMd()" class="btn btn-ghost" style="font-size:12px;padding:5px 12px" title="마크다운 복사">📋 복사</button>
         <button id="modal-close-btn" onclick="closeModal()" class="btn btn-ghost" style="font-size:12px;padding:5px 12px">닫기</button>
       </div>
@@ -938,6 +1001,8 @@ function toggleTheme() {
 
 // ── 상태 ──────────────────────────────────────────────────
 var isRunning = false, isPaused = false, enrolled = {}, timerInterval = null, startTime = null, unknownRemaining = 0, pausedAt = null;
+var _wasRunning = false;  // 이번 세션에서 한 번이라도 회의가 시작됐는지
+
 var lastSummary = "";
 var currentMdFile = "";
 
@@ -1297,6 +1362,7 @@ function loadMeetings() {
           '<span style="color:var(--t1);font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
             esc(m.title) +
           '</span>' +
+          '<button onclick="event.stopPropagation();playMeetingAudio(\''+fEnc+'\')" style="background:none;border:none;font-size:10px;color:var(--t3);cursor:pointer;flex-shrink:0;padding:2px 5px;border-radius:4px;font-family:inherit" onmouseover="this.style.background=\'rgba(99,102,241,0.12)\'" onmouseout="this.style.background=\'none\'" title="녹음 재생">▶</button>' +
           (m.has_summary
             ? '<button onclick="event.stopPropagation();openSummaryModal(\''+fEnc+'\')" style="background:none;border:none;font-size:10px;color:var(--acc);cursor:pointer;flex-shrink:0;padding:2px 5px;border-radius:4px;font-family:inherit" onmouseover="this.style.background=\'rgba(99,102,241,0.12)\'" onmouseout="this.style.background=\'none\'">요약</button>'
             : '') +
@@ -1323,16 +1389,79 @@ function deleteMeeting(fEnc, title) {
 
 function viewMeeting(fEnc) {
   fetch('/api/meetings/' + fEnc).then(function(r){return r.json();}).then(function(d){
-    document.getElementById('v-title').textContent = decodeURIComponent(fEnc);
-    document.getElementById('v-content').innerHTML = renderViewerContent(d.content);
-    document.getElementById('v-raw').value = d.content;
-    document.getElementById('v-read-mode').style.display = '';
-    document.getElementById('v-edit-mode').style.display = 'none';
-    document.getElementById('v-edit-btn').textContent = '편집';
-    document.getElementById('viewer').dataset.file = fEnc;
-    document.getElementById('viewer').classList.remove('hidden');
+    if (isRunning) {
+      // 회의 중: 사이드 뷰어 패널에 표시
+      document.getElementById('v-title').textContent = decodeURIComponent(fEnc);
+      document.getElementById('v-content').innerHTML = renderViewerContent(d.content);
+      document.getElementById('v-raw').value = d.content;
+      document.getElementById('v-read-mode').style.display = '';
+      document.getElementById('v-edit-mode').style.display = 'none';
+      document.getElementById('v-edit-btn').textContent = '편집';
+      document.getElementById('viewer').dataset.file = fEnc;
+      document.getElementById('viewer').classList.remove('hidden');
+    } else {
+      // 대기 중: 메인 transcript 영역에 전체 표시
+      document.getElementById('viewer').classList.add('hidden');
+      var t = document.getElementById('transcript');
+      if (t) t.innerHTML =
+        '<div style="padding:0 0 20px 0;display:flex;align-items:center;justify-content:space-between">' +
+          '<div style="font-weight:600;font-size:14px;color:var(--t1)">' + decodeURIComponent(fEnc).replace('.md','') + '</div>' +
+          '<div style="display:flex;gap:6px">' +
+            '<button onclick="toggleMainEdit(\'' + fEnc + '\')" id="main-edit-btn" class="btn btn-ghost" style="font-size:11px">편집</button>' +
+            '<button onclick="closeMainView()" class="btn btn-ghost" style="font-size:11px">닫기</button>' +
+          '</div>' +
+        '</div>' +
+        '<div id="main-view-content" class="md-body text-xs">' + renderViewerContent(d.content) + '</div>';
+      // 편집용 데이터 저장
+      document.getElementById('transcript').dataset.file = fEnc;
+      document.getElementById('transcript').dataset.raw = d.content;
+    }
     loadViewerTags(fEnc);
   }).catch(function(){setSbar('회의록 로드 실패','red');});
+}
+
+function closeMainView() {
+  var t = document.getElementById('transcript');
+  if (t) t.innerHTML =
+    '<div id="empty-msg" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;text-align:center">' +
+    '<div style="width:52px;height:52px;border-radius:14px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);display:flex;align-items:center;justify-content:center;font-size:24px">🎙</div>' +
+    '<div style="font-weight:600;font-size:14px;color:var(--t2)">회의를 시작해보세요</div>' +
+    '<div style="font-size:12px;color:var(--t3);max-width:220px;line-height:1.6">왼쪽 패널에서 언어와 템플릿을 설정하고<br>시작 버튼을 누르세요</div></div>';
+}
+
+function toggleMainEdit(fEnc) {
+  var t = document.getElementById('transcript');
+  var btn = document.getElementById('main-edit-btn');
+  var content = document.getElementById('main-view-content');
+  if (!content) return;
+  if (btn.textContent === '편집') {
+    var raw = t.dataset.raw || '';
+    content.innerHTML = '<textarea id="main-edit-area" style="width:100%;min-height:400px;resize:vertical;font-family:ui-monospace,monospace;font-size:11px;line-height:1.6;padding:12px;border:1px solid var(--bd);border-radius:8px;background:var(--surface);color:var(--t1)">' + raw.replace(/</g,'&lt;') + '</textarea>' +
+      '<div style="display:flex;gap:6px;margin-top:8px;justify-content:flex-end">' +
+        '<button onclick="closeMainView()" class="btn btn-ghost" style="font-size:11px">취소</button>' +
+        '<button onclick="saveMainEdit(\'' + fEnc + '\')" class="btn btn-primary" style="font-size:11px">저장</button>' +
+      '</div>';
+    btn.textContent = '미리보기';
+  } else {
+    var area = document.getElementById('main-edit-area');
+    if (area) {
+      t.dataset.raw = area.value;
+      content.innerHTML = renderViewerContent(area.value);
+    }
+    btn.textContent = '편집';
+  }
+}
+
+function saveMainEdit(fEnc) {
+  var area = document.getElementById('main-edit-area');
+  if (!area) return;
+  fetch('/api/meetings/' + fEnc, {method:'PUT', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({content: area.value})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if (d.ok) { setSbar('✅ 저장됨','green'); viewMeeting(fEnc); loadMeetings(); }
+      else setSbar('❌ 저장 실패','red');
+    });
 }
 function closeViewer() { document.getElementById('viewer').classList.add('hidden'); }
 
@@ -1462,6 +1591,19 @@ function copyModalMd() {
 }
 function maybeCloseModal(e) { if (e.target === document.getElementById('modal-overlay')) closeModal(); }
 function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+function sendSummaryToSlack() {
+  if (!_modalRawMd) { setSbar('요약 내용 없음','red'); return; }
+  var btn = document.getElementById('modal-slack-btn');
+  btn.textContent = '⏳ 전송 중...'; btn.disabled = true;
+  fetch('/api/slack/send', {method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({text: _modalRawMd})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if (d.ok) { btn.textContent = '✅ 전송됨'; setTimeout(function(){ btn.textContent = '💬 Slack'; btn.disabled = false; }, 3000); }
+      else { btn.textContent = '💬 Slack'; btn.disabled = false; setSbar('❌ ' + (d.msg||'전송 실패'),'red'); }
+    })
+    .catch(function(){ btn.textContent = '💬 Slack'; btn.disabled = false; setSbar('서버 연결 오류','red'); });
+}
 document.addEventListener('keydown', function(e){ if (e.key==='Escape') { closeModal(); closeAI(); closeStats(); closeShare(); closeOnboarding(); closeDeps(); closeGlossary(); closeSettings(); } });
 
 // ── SSE ───────────────────────────────────────────────────
@@ -1475,11 +1617,21 @@ function connectSSE() {
 
 function handle(ev) {
   switch(ev.type) {
-    case 'started':   onStarted(ev.data); break;
-    case 'finished':  onFinished(ev.data); break;
+    case 'started':
+      if (!_wasRunning) { _wasRunning = true; }  // SSE 히스토리 재생 시 UI 갱신 방지
+      onStarted(ev.data); break;
+    case 'finished':
+      if (!isRunning && !_wasRunning) break;  // 이전 회의 이벤트 무시
+      onFinished(ev.data); break;
     case 'unknown_speakers_found':
+      if (!isRunning && !_wasRunning) break;  // 이전 회의 이벤트 무시
       unknownRemaining = ev.data.speakers.length; showUnknownPanel(ev.data.speakers); break;
-    case 'line':       if (isRunning) addLine(ev.data.speaker, ev.data.text, ev.data.time, false); break;
+    case 'line':
+      if (isRunning) {
+        addLine(ev.data.speaker, ev.data.text, ev.data.time, false);
+        if (ev.data.seconds) trackSpeaking(ev.data.speaker, ev.data.seconds);
+      }
+      break;
     case 'correction': if (isRunning) addLine(ev.data.speaker, ev.data.text, ev.data.time, true, ev.data.original); break;
     case 'briefing':
       addClaudeBlock('📋 이전 회의 브리핑', ev.data.content, true); break;
@@ -1552,16 +1704,29 @@ function handle(ev) {
     case 'semantic_results':
       showSemanticResults(ev.data);
       break;
+    case 'ai_search_result':
+      showAISearchResult(ev.data);
+      break;
     case 'ping': break;
   }
 }
 
 function onStarted(data) {
-  isRunning = true; isPaused = false; startTime = Date.now(); colorMap = {}; colorIdx = 0; enrolled = {};
+  isRunning = true; _wasRunning = true; isPaused = false; startTime = Date.now(); colorMap = {}; colorIdx = 0; enrolled = {}; _speakingSecs = {};
   lastSummary = ''; currentMdFile = encodeURIComponent(data.md_file || ''); renderEnrolled();
+  // 이전 회의 완전 초기화 (transcript 먼저 비워야 empty-msg 접근 가능)
+  var viewer = document.getElementById('viewer');
+  if (viewer) viewer.classList.add('hidden');
+  closeAudioPlayer();
+  var transcript = document.getElementById('transcript');
+  if (transcript) transcript.innerHTML = '';
+  var unknownPanel = document.getElementById('unknown-panel');
+  if (unknownPanel) unknownPanel.classList.add('hidden');
+  var statsBar = document.getElementById('speaking-stats');
+  if (statsBar) statsBar.classList.add('hidden');
+  // UI 상태 전환
   document.getElementById('setup-panel').classList.add('hidden');
   document.getElementById('ctrl-panel').classList.remove('hidden');
-  document.getElementById('empty-msg').style.display = 'none';
   document.getElementById('mtitle').textContent = data.title;
   document.getElementById('sdot').style.background = '#ef4444';
   document.getElementById('sdot').className = 'pulse';
@@ -1573,6 +1738,7 @@ function onStarted(data) {
   timerInterval = setInterval(tick, 1000);
   setSbar('🎙️ 모드 '+data.mode+' — '+((data.participants||[]).join(', ')||'자동 식별'),'green');
   startMicLevel();
+  generateMeetingQR();
   document.getElementById('memo-bar').classList.remove('hidden');
   document.getElementById('memo-input').disabled = false;
   document.getElementById('memo-btn').disabled = false;
@@ -1828,6 +1994,25 @@ function copyShareUrl(el) {
 }
 function closeShare() { document.getElementById('share-modal').classList.remove('open'); }
 
+function generateMeetingQR() {
+  fetch('/api/share_url').then(function(r){return r.json();}).then(function(d){
+    var readonlyUrl = d.url + '?readonly=1';
+    var canvas = document.getElementById('meeting-qr-canvas');
+    var urlEl = document.getElementById('meeting-qr-url');
+    if (urlEl) { urlEl.textContent = readonlyUrl; urlEl.dataset.url = readonlyUrl; }
+    if (typeof QRCode !== 'undefined' && canvas) {
+      QRCode.toCanvas(canvas, readonlyUrl, {width:120, margin:1, color:{dark:'#000',light:'#fff'}}, function(){});
+    }
+  }).catch(function(){});
+}
+function toggleMeetingQR() {
+  var body = document.getElementById('meeting-qr-body');
+  var btn = document.getElementById('qr-toggle-btn');
+  if (!body) return;
+  if (body.style.display === 'none') { body.style.display = ''; btn.textContent = '▲'; }
+  else { body.style.display = 'none'; btn.textContent = '▼'; }
+}
+
 // ── 온보딩 ───────────────────────────────────────────────
 function openOnboarding() { document.getElementById('onboarding-modal').classList.add('open'); }
 function closeOnboarding() {
@@ -1872,6 +2057,42 @@ function showSemanticResults(data) {
   }
 }
 
+// ── AI 대화형 검색 ────────────────────────────────────────
+function toggleAISearch() {
+  var panel = document.getElementById('ai-search-panel');
+  var arrow = document.getElementById('ai-search-arrow');
+  if (panel.style.display === 'none') { panel.style.display = ''; arrow.textContent = '▲'; }
+  else { panel.style.display = 'none'; arrow.textContent = '▼'; }
+}
+function doAISearch() {
+  var input = document.getElementById('ai-search-input');
+  var question = (input.value || '').trim();
+  if (!question) return;
+  var btn = document.getElementById('ai-search-btn');
+  btn.disabled = true; btn.textContent = '🔍 검색 중...';
+  var resultEl = document.getElementById('ai-search-result');
+  resultEl.style.display = 'block'; resultEl.textContent = '🤖 AI가 회의록을 분석 중입니다...';
+  // 15초 타임아웃: SSE 응답 안 오면 버튼 자동 복구
+  var _aiTimeout = setTimeout(function(){
+    btn.disabled = false; btn.textContent = '🤖 AI에게 질문';
+    if (resultEl.textContent.indexOf('분석 중') !== -1) resultEl.textContent = '⏱ 응답 시간 초과. 다시 시도해주세요.';
+  }, 30000);
+  window._aiSearchTimeout = _aiTimeout;
+  fetch('/api/search/ai', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({question:question})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if (!d.ok) { clearTimeout(_aiTimeout); resultEl.textContent = '오류: ' + (d.msg || ''); btn.disabled = false; btn.textContent = '🤖 AI에게 질문'; }
+    })
+    .catch(function(e){ clearTimeout(_aiTimeout); resultEl.textContent = '서버 연결 오류'; btn.disabled = false; btn.textContent = '🤖 AI에게 질문'; });
+}
+function showAISearchResult(data) {
+  if (window._aiSearchTimeout) clearTimeout(window._aiSearchTimeout);
+  var resultEl = document.getElementById('ai-search-result');
+  var btn = document.getElementById('ai-search-btn');
+  if (resultEl) { resultEl.style.display = 'block'; resultEl.textContent = data.answer || '결과 없음'; }
+  if (btn) { btn.disabled = false; btn.textContent = '🤖 AI에게 질문'; }
+}
+
 // ── 설정 ─────────────────────────────────────────────────
 var _settings = {obsidian_vault:'', obsidian_subfolder:'회의록', folders:[{name:'기본',path:''}]};
 var _activeTab = 0;
@@ -1889,6 +2110,7 @@ function loadSettingsData() {
     document.getElementById('s-obsidian-subfolder').value = d.obsidian_subfolder || '회의록';
     renderSettingsFolders(d.folders || []);
     document.getElementById('s-whisper-model').value = d.whisper_model || 'large-v3-turbo';
+    document.getElementById('s-slack-webhook').value = d.slack_webhook || '';
   });
 }
 
@@ -1918,7 +2140,8 @@ function saveSettings() {
     obsidian_vault: document.getElementById('s-obsidian-vault').value.trim(),
     obsidian_subfolder: document.getElementById('s-obsidian-subfolder').value.trim(),
     folders: folders,
-    whisper_model: document.getElementById('s-whisper-model').value
+    whisper_model: document.getElementById('s-whisper-model').value,
+    slack_webhook: document.getElementById('s-slack-webhook').value.trim()
   };
   fetch('/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)})
     .then(function(){ closeSettings(); renderFolderTabs(data.folders); _settings = data; });
@@ -1948,6 +2171,130 @@ function switchTab(idx) {
 }
 
 // ── 시스템 의존성 ─────────────────────────────────────────
+// ── 오디오 플레이어 + 대화 하이라이트 ─────────────────────
+var _audio = null;
+var _audioFile = '';
+var _audioLines = []; // [{time_sec, element}, ...]
+
+function playMeetingAudio(fEnc) {
+  var audioUrl = '/api/meetings/' + fEnc + '/audio';
+  // 먼저 회의록 열기
+  viewMeeting(fEnc);
+  // 오디오 로드
+  if (_audio) { _audio.pause(); _audio = null; }
+  _audio = new Audio(audioUrl);
+  _audioFile = fEnc;
+  _audio.onerror = function() { setSbar('녹음 파일 없음','gray'); };
+  _audio.onloadedmetadata = function() {
+    document.getElementById('audio-bar').classList.remove('hidden');
+    document.getElementById('audio-seek').max = Math.floor(_audio.duration);
+    _updateAudioTime();
+    _buildAudioLineMap();
+  };
+  _audio.ontimeupdate = function() {
+    var seek = document.getElementById('audio-seek');
+    seek.value = Math.floor(_audio.currentTime);
+    _updateAudioTime();
+    _highlightCurrentLine();
+  };
+  _audio.onended = function() {
+    document.getElementById('audio-play-btn').textContent = '▶';
+    _clearHighlight();
+  };
+}
+
+function toggleAudioPlay() {
+  if (!_audio) return;
+  if (_audio.paused) {
+    _audio.play();
+    document.getElementById('audio-play-btn').textContent = '⏸';
+  } else {
+    _audio.pause();
+    document.getElementById('audio-play-btn').textContent = '▶';
+  }
+}
+
+function seekAudio(val) {
+  if (_audio) _audio.currentTime = parseFloat(val);
+}
+
+function closeAudioPlayer() {
+  if (_audio) { _audio.pause(); _audio = null; }
+  document.getElementById('audio-bar').classList.add('hidden');
+  _clearHighlight();
+}
+
+function setAudioSpeed(rate) {
+  if (_audio) _audio.playbackRate = rate;
+  var btns = document.querySelectorAll('.audio-spd-btn');
+  btns.forEach(function(b) {
+    if (parseFloat(b.dataset.speed) === rate) {
+      b.style.background = 'rgba(99,102,241,0.15)';
+      b.style.borderColor = 'rgba(99,102,241,0.3)';
+      b.style.color = 'var(--acc)';
+    } else {
+      b.style.background = 'none';
+      b.style.borderColor = 'var(--bd)';
+      b.style.color = 'var(--t3)';
+    }
+  });
+}
+
+function _updateAudioTime() {
+  if (!_audio) return;
+  var cur = _audio.currentTime, dur = _audio.duration || 0;
+  var fmt = function(s) { return Math.floor(s/60) + ':' + ('0'+Math.floor(s%60)).slice(-2); };
+  document.getElementById('audio-time').textContent = fmt(cur) + ' / ' + fmt(dur);
+}
+
+function _buildAudioLineMap() {
+  _audioLines = [];
+  // v-content 또는 transcript 영역에서 타임스탬프가 있는 줄 수집
+  var container = document.getElementById('v-content') || document.getElementById('transcript');
+  if (!container) return;
+  var els = container.querySelectorAll('[data-time]');
+  if (!els.length) {
+    // data-time 없으면 bold 태그에서 HH:MM:SS 패턴 추출
+    var allBolds = container.querySelectorAll('strong, b');
+    allBolds.forEach(function(b) {
+      var m = b.textContent.match(/(\d{2}):(\d{2}):(\d{2})/);
+      if (m) {
+        var sec = parseInt(m[1])*3600 + parseInt(m[2])*60 + parseInt(m[3]);
+        var lineEl = b.closest('p') || b.parentElement;
+        if (lineEl) _audioLines.push({time_sec: sec, element: lineEl});
+      }
+    });
+  }
+  // 첫 번째 타임스탬프를 기준 오프셋으로
+  if (_audioLines.length > 0) {
+    var baseTime = _audioLines[0].time_sec;
+    _audioLines.forEach(function(l) { l.time_sec -= baseTime; });
+  }
+}
+
+function _highlightCurrentLine() {
+  if (!_audio || !_audioLines.length) return;
+  var cur = _audio.currentTime;
+  var active = null;
+  for (var i = _audioLines.length - 1; i >= 0; i--) {
+    if (_audioLines[i].time_sec <= cur) { active = _audioLines[i]; break; }
+  }
+  _audioLines.forEach(function(l) {
+    l.element.style.background = (l === active) ? 'rgba(251,191,36,0.15)' : '';
+    l.element.style.borderRadius = (l === active) ? '6px' : '';
+  });
+  if (active && active.element) {
+    active.element.scrollIntoView({behavior:'smooth', block:'center'});
+  }
+}
+
+function _clearHighlight() {
+  _audioLines.forEach(function(l) {
+    l.element.style.background = '';
+    l.element.style.borderRadius = '';
+  });
+}
+
 function openDeps() { document.getElementById('deps-modal').classList.add('open'); loadDeps(); }
 function closeDeps() { document.getElementById('deps-modal').classList.remove('open'); }
 function loadDeps() {
@@ -2353,6 +2700,8 @@ function tick() {
 })();
 
 // ── 초기화 ───────────────────────────────────────────────
+// 페이지 로드 초기화: unknown 패널/transcript 깨끗하게
+document.getElementById('unknown-panel').classList.add('hidden');
 connectSSE(); loadProfiles(); onMode();
 loadMicDevices();
 // 설정 로드 후 탭 렌더링 + 회의록 목록 로드
@@ -2360,12 +2709,27 @@ fetch('/api/settings').then(function(r){ return r.json(); }).then(function(d) {
   _settings = d;
   renderFolderTabs(d.folders || []);
   loadMeetings();
+  // SSE 히스토리 이벤트가 덮어쓸 수 있어 지연 재로드
+  setTimeout(loadMeetings, 1500);
 }).catch(function(){ loadMeetings(); });
-// 의존성 상태 헤더 표시 (경고 있으면 빨간색)
+// 의존성 상태 헤더 표시 (경고 있으면 빨간색) + LLM 뱃지
 fetch('/api/deps').then(function(r){ return r.json(); }).then(function(d) {
   var allOk = (d.deps || []).every(function(x){ return x.ok; });
   var btn = document.getElementById('deps-btn');
   if (btn && !allOk) btn.style.color = 'var(--danger-text)';
+  // LLM 뱃지 표시
+  var badge = document.getElementById('llm-badge');
+  if (badge && d.deps) {
+    var llm = d.deps.find(function(x){ return x.name === 'LLM 백엔드'; });
+    if (llm) {
+      var isClaude = llm.detail && llm.detail.indexOf('Claude') !== -1;
+      badge.textContent = isClaude ? 'Claude' : (llm.ok ? 'Ollama' : 'AI OFF');
+      badge.style.background = isClaude ? 'rgba(99,102,241,0.15)' : (llm.ok ? 'rgba(74,222,128,0.15)' : 'rgba(239,68,68,0.15)');
+      badge.style.color = isClaude ? '#818cf8' : (llm.ok ? '#4ade80' : '#ef4444');
+      badge.style.border = '1px solid ' + (isClaude ? 'rgba(99,102,241,0.3)' : (llm.ok ? 'rgba(74,222,128,0.3)' : 'rgba(239,68,68,0.3)'));
+      badge.style.display = 'inline-block';
+    }
+  }
 });
 fetch('/api/status').then(function(r){return r.json();}).then(function(d){
   // resemblyzer 경고
@@ -2398,8 +2762,52 @@ fetch('/api/status').then(function(r){return r.json();}).then(function(d){
     document.getElementById('memo-btn').disabled = false;
     setSbar('🎙️ 회의 진행 중 — '+d.md_file,'green');
     startTime = Date.now(); timerInterval = setInterval(tick, 1000); isRunning = true;
+    if (d.speaking_stats && d.speaking_stats.length > 0) updateSpeakingStats(d.speaking_stats);
+  } else {
+    // 대기 상태: transcript 빈 화면으로 초기화
+    var t = document.getElementById('transcript');
+    if (t) t.innerHTML =
+      '<div id="empty-msg" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;text-align:center">' +
+      '<div style="width:52px;height:52px;border-radius:14px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);display:flex;align-items:center;justify-content:center;font-size:24px">🎙</div>' +
+      '<div style="font-weight:600;font-size:14px;color:var(--t2)">회의를 시작해보세요</div>' +
+      '<div style="font-size:12px;color:var(--t3);max-width:220px;line-height:1.6">왼쪽 패널에서 언어와 템플릿을 설정하고<br>시작 버튼을 누르세요</div></div>';
+    document.getElementById('viewer').classList.add('hidden');
   }
 });
+
+var _speakingSecs = {};
+function trackSpeaking(speaker, secs) {
+  _speakingSecs[speaker] = (_speakingSecs[speaker] || 0) + secs;
+  var total = Object.values(_speakingSecs).reduce(function(a,b){return a+b;}, 0);
+  if (total === 0) return;
+  var stats = Object.keys(_speakingSecs).map(function(n) {
+    return {name: n, seconds: _speakingSecs[n], ratio: _speakingSecs[n] / total};
+  }).sort(function(a,b){return b.seconds - a.seconds;});
+  updateSpeakingStats(stats);
+}
+
+function updateSpeakingStats(stats) {
+  if (!stats || stats.length === 0) return;
+  var el = document.getElementById('speaking-stats');
+  var bars = document.getElementById('stats-bars');
+  if (!el || !bars) return;
+  el.classList.remove('hidden');
+  var colors = ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4'];
+  bars.innerHTML = stats.map(function(s, i) {
+    var pct = Math.round(s.ratio * 100);
+    var secs = Math.round(s.seconds);
+    var mins = Math.floor(secs / 60), sec2 = secs % 60;
+    var timeStr = mins > 0 ? mins + '분 ' + sec2 + '초' : sec2 + '초';
+    var color = colors[i % colors.length];
+    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">' +
+      '<span style="font-size:11px;color:var(--t2);width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0">' + esc(s.name) + '</span>' +
+      '<div style="flex:1;height:6px;background:var(--bd);border-radius:3px;overflow:hidden">' +
+        '<div style="width:' + pct + '%;height:100%;background:' + color + ';border-radius:3px;transition:width 0.5s"></div>' +
+      '</div>' +
+      '<span style="font-size:10px;color:var(--t3);width:70px;text-align:right;flex-shrink:0">' + timeStr + ' (' + pct + '%)</span>' +
+    '</div>';
+  }).join('');
+}
 </script>
 </body>
 </html>

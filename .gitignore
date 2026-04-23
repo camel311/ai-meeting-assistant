@@ -1,3 +1,6 @@
+# 환경 변수 (토큰 등 민감 정보)
+.env
+
 # 회의 데이터 (개인정보)
 meetings/
 voices/
@@ -11,9 +14,17 @@ vocab_en.json
 
 # 회사 내부 정보
 glossary.json
+corrections.json
 
 # Claude Code 내부 데이터
 .claude/
+
+# HTTPS 인증서 (자동 생성)
+cert.pem
+key.pem
+
+# 가상환경
+.venv/
 
 # 시스템
 .DS_Store

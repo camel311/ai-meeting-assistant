@@ -45,28 +45,41 @@ echo  🔧  필수 패키지 설치 중... (수 분 소요)
 echo  ──────────────────────────────────────────
 echo.
 
-set PACKAGES=flask sounddevice numpy send2trash faster-whisper resemblyzer noisereduce webrtcvad cryptography
+set PACKAGES=flask flask-socketio sounddevice numpy send2trash faster-whisper resemblyzer noisereduce webrtcvad cryptography torch pyannote.audio asteroid omegaconf
 
 for %%p in (%PACKAGES%) do (
     echo  📦  %%p 설치 중...
     python -m pip install %%p -q
     if errorlevel 1 (
-        echo  ⚠️  %%p 설치 실패 (일부 기능 제한될 수 있음)
+        echo  ⚠️  %%p 설치 실패 (일부 기능 제한될 수 있음^)
     ) else (
         echo  ✅  %%p
     )
 )
 
-:: ── 4. sounddevice 의존성 안내 ──────────────────────────
+:: ── 3.5. ffmpeg 확인 (회의 녹음 MP3 변환용) ──────────────
 echo.
 echo  ──────────────────────────────────────────
-echo  ℹ️   마이크 오류 시 PortAudio 설치 필요:
-echo      https://github.com/intxcc/pyaudio_portaudio
-echo      또는: pip install pipwin ^&^& pipwin install pyaudio
+echo  🔧  ffmpeg 확인 중...
 echo  ──────────────────────────────────────────
-echo.
+where ffmpeg > nul 2>&1
+if not errorlevel 1 (
+    echo  ✅  ffmpeg 이미 설치됨
+) else (
+    echo  📦  ffmpeg 설치 중 (winget)...
+    winget install ffmpeg -e --silent > nul 2>&1
+    if not errorlevel 1 (
+        echo  ✅  ffmpeg 설치 완료
+    ) else (
+        echo  ⚠️  ffmpeg 자동 설치 실패
+        echo  ℹ️  수동 설치: https://ffmpeg.org/download.html
+        echo  ℹ️  없어도 WAV로 녹음 저장됩니다 (용량이 더 큼^)
+    )
+)
 
-:: ── 5. Whisper 모델 다운로드 ────────────────────────────
+:: ── 4. Whisper 모델 다운로드 ────────────────────────────
+echo.
+echo  ──────────────────────────────────────────
 echo  🔧  Whisper 음성인식 모델 다운로드 중...
 echo  ──────────────────────────────────────────
 echo.
@@ -76,10 +89,41 @@ echo.
 
 python -c "from faster_whisper import WhisperModel; print('  모델 다운로드 시작...'); WhisperModel('large-v3-turbo', device='cpu', compute_type='int8'); print('  ✅  모델 다운로드 완료')"
 
+:: ── 5. LLM 백엔드 확인 ─────────────────────────────────
+echo.
+echo  ──────────────────────────────────────────
+echo  🔧  LLM 백엔드 확인 중...
+echo  ──────────────────────────────────────────
+
+where claude > nul 2>&1
+if not errorlevel 1 (
+    echo  ✅  Claude Code CLI 감지됨 → AI 기능 Claude로 동작
+    goto :llm_done
+)
+
+where ollama > nul 2>&1
+if not errorlevel 1 (
+    echo  ✅  Ollama 감지됨 → AI 기능 Ollama로 동작
+    set OLLAMA_TARGET=exaone3.5:7.8b-instruct-q4_K_M
+    echo  📥  한국어 최적화 모델 다운로드 중: %OLLAMA_TARGET% (~5GB^)
+    ollama pull %OLLAMA_TARGET%
+    goto :llm_done
+)
+
+echo  ⚠️  Claude CLI, Ollama 모두 없음
+echo  ℹ️  Ollama 설치를 권장합니다: https://ollama.com
+echo  ℹ️  설치 후 install_windows.bat를 다시 실행해주세요.
+
+:llm_done
+
 :: ── 6. 폴더 생성 ────────────────────────────────────────
 if not exist "meetings" mkdir meetings
 if not exist "voices" mkdir voices
 if not exist "static" mkdir static
+if not exist "glossary.json" echo {} > glossary.json
+if not exist "vocab_ko.json" echo {} > vocab_ko.json
+if not exist "vocab_en.json" echo {} > vocab_en.json
+if not exist "vocab_ja.json" echo {} > vocab_ja.json
 echo  ✅  meetings\, voices\, static\ 폴더 준비됨
 
 :: ── 완료 ────────────────────────────────────────────────

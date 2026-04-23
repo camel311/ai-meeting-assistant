@@ -21,20 +21,25 @@
 
 ```
 meeting_assistant/
-├── install.command       ← 더블클릭으로 설치 (1회)
-├── start.command         ← 더블클릭으로 실행
+├── install.command       ← Mac 설치 (더블클릭, 최초 1회)
+├── start.command         ← Mac 실행 (더블클릭)
 ├── meeting.py            ← 엔진 (핵심 로직)
 ├── server.py             ← 웹 서버 (meeting.py import)
 ├── search.py             ← 회의록 키워드 검색
 ├── CLAUDE.md             ← 이 파일
-├── cert.pem / key.pem    ← HTTPS 인증서 (자동 생성)
 ├── static/
 │   └── index.html        ← 웹 UI
 ├── meetings/             ← 회의록 저장 (자동 생성)
-└── voices/
-    └── {이름}/           ← 목소리 프로파일 (자동 생성)
-        └── *.npy
+├── voices/               ← 목소리 프로파일 (자동 생성)
+├── glossary.json         ← 회사 용어집
+└── vocab_*.json          ← 누적 도메인 어휘
 ```
+
+---
+
+## AI 백엔드
+
+Claude Code CLI 있으면 Claude 사용, 없으면 Ollama 자동 전환.
 
 ---
 
@@ -107,22 +112,10 @@ title: "API 성능 개선 논의"   ← 종료 후 자동 생성
 
 ---
 
-## 회의록 검색 (터미널)
-
-```bash
-python3 search.py 백엔드              # 키워드 검색
-python3 search.py API --speaker Jerry  # 발화자 필터
-python3 search.py --date 2026-04       # 날짜 필터
-python3 search.py --list               # 전체 목록
-python3 search.py --summary            # 최근 5개 요약
-```
-
----
-
 ## 주의
 
 - 최신 회의록 = `meetings/` 폴더에서 수정 시간이 가장 최근인 파일
 - 회의 중이라면 파일이 실시간 업데이트 중
 - YAML frontmatter의 `status: in-progress` → 종료 시 `status: complete` 자동 변경
 - 자동 교정된 발화는 웹 UI에서 ✏️ 표시로 확인 가능
-- 접속 주소: `https://localhost:5555` (HTTPS, 첫 접속 시 인증서 경고 무시)
+- 접속 주소: `http://localhost:5555`
