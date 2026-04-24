@@ -15,6 +15,7 @@ vocab_en.json
 # 회사 내부 정보
 glossary.json
 corrections.json
+hallucination_patterns.json
 
 # Claude Code 내부 데이터
 .claude/

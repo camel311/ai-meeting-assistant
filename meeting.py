@@ -773,10 +773,58 @@ def _load_silero_vad():
         return False
 
 # ── 트리거 워드 패턴 ──────────────────────────────────────
+HALLUCINATION_PATTERNS_FILE = _BASE_DIR / "hallucination_patterns.json"
+_learned_hallucinations: set = set()
+_hallucination_lock = threading.Lock()
+
+
+def _load_hallucination_patterns():
+    """학습된 할루시네이션 패턴 로드."""
+    global _learned_hallucinations
+    if not HALLUCINATION_PATTERNS_FILE.exists():
+        return
+    try:
+        data = json.loads(HALLUCINATION_PATTERNS_FILE.read_text(encoding="utf-8"))
+        _learned_hallucinations = set(data.get("patterns", []))
+    except Exception:
+        pass
+
+
+def _save_hallucination_pattern(pattern: str, reason: str):
+    """새 할루시네이션 패턴 저장."""
+    with _hallucination_lock:
+        try:
+            data = {"patterns": [], "details": []}
+            if HALLUCINATION_PATTERNS_FILE.exists():
+                data = json.loads(HALLUCINATION_PATTERNS_FILE.read_text(encoding="utf-8"))
+            patterns = data.get("patterns", [])
+            if pattern not in patterns:
+                patterns.append(pattern)
+                data["patterns"] = patterns[-500]  if isinstance(patterns, list) else patterns  # 최대 500개
+                details = data.get("details", [])
+                details.append({"pattern": pattern, "reason": reason,
+                                "date": datetime.now().strftime("%Y-%m-%d")})
+                data["details"] = details[-500:]
+                data["patterns"] = patterns[:500]
+                HALLUCINATION_PATTERNS_FILE.write_text(
+                    json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+                _learned_hallucinations.add(pattern)
+        except Exception:
+            pass
+
+
+_load_hallucination_patterns()
+
+
 def _filter_hallucination(text: str) -> str:
-    """Whisper 할루시네이션 패턴 필터링."""
+    """Whisper 할루시네이션 패턴 필터링 (하드코딩 + 학습된 패턴)."""
     if not text:
         return text
+
+    # 0. 학습된 패턴 매칭
+    stripped_text = text.strip()
+    if stripped_text in _learned_hallucinations:
+        return ''
 
     # 1. 한글 자모/특수문자 연속 반복: "ㅇㅇㅇㅇ", "ㅎㅎㅎ", "ㅋㅋㅋ" 등
     if re.search(r'([ㄱ-ㅎㅏ-ㅣ])\1{4,}', text):
@@ -2313,6 +2361,49 @@ class MeetingRecorder:
         else:
             print("[INFO] 전체 대화 AI 교정: 교정 필요 없음", file=sys.stderr)
 
+    def _detect_hallucination_patterns(self):
+        """회의 종료 후 대화록에서 할루시네이션 패턴을 자동 감지하여 학습."""
+        if not self.md_path or not self.md_path.exists():
+            return
+        import re as _re
+        from collections import Counter
+
+        content = self.md_path.read_text(encoding="utf-8")
+        pattern = _re.compile(r'\*\*\d{2}:\d{2}:\d{2}\*\* \| \*\*.+?\*\*: (.+)')
+        utterances = [m.group(1).split('<!-- STT:')[0].strip() for m in pattern.finditer(content)]
+
+        if len(utterances) < 5:
+            return
+
+        new_patterns = 0
+
+        # 1. 동일 텍스트 3회 이상 반복 → 할루시네이션
+        counts = Counter(utterances)
+        for text, count in counts.items():
+            if count >= 3 and len(text) < 100:
+                _save_hallucination_pattern(text, f"동일 텍스트 {count}회 반복")
+                new_patterns += 1
+
+        # 2. 같은 시간에 같은 텍스트 (중복 발화)
+        time_text = _re.findall(r'\*\*(\d{2}:\d{2}:\d{2})\*\* \| \*\*.+?\*\*: (.+?)(?:\s*<!--|\n)', content)
+        time_counts = Counter(time_text)
+        for (t, text), count in time_counts.items():
+            if count >= 2:
+                clean = text.split('<!-- STT:')[0].strip()
+                if clean and len(clean) < 100:
+                    _save_hallucination_pattern(clean, f"같은 시간({t})에 {count}회 중복")
+                    new_patterns += 1
+
+        # 3. 비정상적으로 짧은 의미없는 발화 (5자 이하, 2회 이상)
+        short_counts = Counter(u for u in utterances if len(u.strip()) <= 5)
+        for text, count in short_counts.items():
+            if count >= 2 and text.strip():
+                _save_hallucination_pattern(text.strip(), f"짧은 반복 발화 {count}회")
+                new_patterns += 1
+
+        if new_patterns > 0:
+            print(f"[INFO] 할루시네이션 패턴 {new_patterns}개 학습됨", file=sys.stderr)
+
     def _merge_consecutive_speakers(self):
         """회의 종료 후 연속 같은 화자 발화를 하나로 병합 (가독성 향상)."""
         import re as _re
@@ -2461,7 +2552,7 @@ class MeetingRecorder:
             # 자동 제목 생성 (요약 완료 후 비동기)
             threading.Thread(target=self._generate_title, daemon=True).start()
 
-        # vocab 누적 업데이트 + 용어집 자동 추출 (백그라운드)
+        # vocab 누적 + 용어집 자동 추출 + 할루시네이션 패턴 학습 (백그라운드)
         if self.md_path and self.md_path.exists():
             _md = self.md_path
             _lang = self.language
@@ -2473,6 +2564,10 @@ class MeetingRecorder:
             threading.Thread(
                 target=extract_glossary_from_meeting,
                 args=(_md,),
+                daemon=True
+            ).start()
+            threading.Thread(
+                target=self._detect_hallucination_patterns,
                 daemon=True
             ).start()
 
