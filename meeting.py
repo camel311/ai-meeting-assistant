@@ -340,6 +340,24 @@ MEETING_TEMPLATES: Dict[str, dict] = {
 }
 
 
+def _atomic_write(path: Path, content: str):
+    """Atomic file write — 전력 손실 시 파일 손상 방지."""
+    import tempfile
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', dir=str(path.parent),
+                                         suffix='.tmp', delete=False, encoding='utf-8') as tmp:
+            tmp.write(content)
+            tmp_path = Path(tmp.name)
+        tmp_path.replace(path)
+    except Exception:
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+        # 폴백: 직접 쓰기
+        path.write_text(content, encoding="utf-8")
+
+
 VOCAB_FILE       = _BASE_DIR / "vocab.json"
 GLOSSARY_FILE    = _BASE_DIR / "glossary.json"
 CORRECTIONS_FILE = _BASE_DIR / "corrections.json"
@@ -476,9 +494,8 @@ def save_correction(original: str, corrected: str):
         if len(corrections) > 200:
             corrections.sort(key=lambda x: x.get("count", 0), reverse=True)
             corrections = corrections[:200]
-        CORRECTIONS_FILE.write_text(
-            json.dumps({"corrections": corrections}, ensure_ascii=False, indent=2),
-            encoding="utf-8"
+        _atomic_write(CORRECTIONS_FILE,
+            json.dumps({"corrections": corrections}, ensure_ascii=False, indent=2)
         )
 
 
@@ -800,14 +817,14 @@ def _save_hallucination_pattern(pattern: str, reason: str):
             patterns = data.get("patterns", [])
             if pattern not in patterns:
                 patterns.append(pattern)
-                data["patterns"] = patterns[-500]  if isinstance(patterns, list) else patterns  # 최대 500개
                 details = data.get("details", [])
                 details.append({"pattern": pattern, "reason": reason,
                                 "date": datetime.now().strftime("%Y-%m-%d")})
+                # 최대 500개 제한
+                data["patterns"] = patterns[-500:]
                 data["details"] = details[-500:]
-                data["patterns"] = patterns[:500]
-                HALLUCINATION_PATTERNS_FILE.write_text(
-                    json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+                _atomic_write(HALLUCINATION_PATTERNS_FILE,
+                    json.dumps(data, ensure_ascii=False, indent=2))
                 _learned_hallucinations.add(pattern)
         except Exception:
             pass
@@ -2091,6 +2108,132 @@ class MeetingRecorder:
             self.emit("briefing", {"content": result})
 
     # ── 종료 + 요약 ────────────────────────────────────────
+    def _retranscribe_full_audio(self):
+        """회의 종료 후 전체 오디오를 Whisper로 재전사 — 청크 단위보다 문맥이 풍부해 정확도 향상."""
+        import re as _re
+
+        full_audio = np.concatenate(self._full_audio_chunks)
+        duration = len(full_audio) / SAMPLE_RATE
+
+        # 5분 이상 오디오만 재전사 (짧으면 효과 미미)
+        if duration < 300:
+            return
+
+        print(f"[INFO] 전체 재전사 시작: {duration:.0f}초 오디오", file=sys.stderr)
+
+        # 오디오 정규화
+        rms = float(np.sqrt(np.mean(full_audio ** 2)))
+        if rms > 1e-9:
+            full_audio = full_audio * (0.05 / rms)
+            full_audio = np.clip(full_audio, -1.0, 1.0)
+
+        # Whisper 전체 전사
+        try:
+            if self.__class__._use_mlx:
+                import mlx_whisper
+                mlx_model = self.__class__._MLX_MODEL_MAP.get(WHISPER_MODEL, WHISPER_MODEL)
+                result = mlx_whisper.transcribe(
+                    full_audio,
+                    path_or_hf_repo=mlx_model,
+                    language=self.lang_cfg["whisper_lang"],
+                    initial_prompt=self.whisper_prompt,
+                    compression_ratio_threshold=1.8,
+                    no_speech_threshold=0.6,
+                    hallucination_silence_threshold=0.5,
+                    condition_on_previous_text=True,
+                    word_timestamps=True,
+                )
+                segments = result.get("segments", [])
+            else:
+                with self._model_lock:
+                    segs_iter, _ = self.model.transcribe(
+                        full_audio,
+                        language=self.lang_cfg["whisper_lang"],
+                        initial_prompt=self.whisper_prompt,
+                        beam_size=5,
+                        best_of=5,
+                        condition_on_previous_text=True,
+                        no_speech_threshold=0.6,
+                        compression_ratio_threshold=1.8,
+                        vad_filter=True,
+                        word_timestamps=True,
+                    )
+                    segments = [{"start": s.start, "end": s.end, "text": s.text.strip(),
+                                 "no_speech_prob": s.no_speech_prob}
+                                for s in segs_iter]
+        except Exception as exc:
+            print(f"[WARN] 전체 재전사 Whisper 실패: {exc}", file=sys.stderr)
+            return
+
+        if not segments:
+            return
+
+        # 기존 MD 파일의 발화 추출
+        content = self.md_path.read_text(encoding="utf-8")
+        line_pattern = _re.compile(r'\*\*(\d{2}:\d{2}:\d{2})\*\* \| \*\*(.+?)\*\*: (.+?)(?:\s*<!--|$)')
+        existing = list(line_pattern.finditer(content))
+
+        if not existing:
+            return
+
+        # 시작 시간 기준 (첫 발화의 시계 시간)
+        first_match = existing[0]
+        h, m, s = first_match.group(1).split(":")
+        base_clock = int(h) * 3600 + int(m) * 60 + int(s)
+
+        # 재전사 결과와 기존 발화 매칭 (시간 기반)
+        corrected = 0
+        lines = content.splitlines()
+
+        for ex in existing:
+            ex_time = ex.group(1)
+            ex_speaker = ex.group(2)
+            ex_text = ex.group(3).split('<!-- STT:')[0].strip()
+            eh, em, es = ex_time.split(":")
+            ex_offset = ((int(eh) * 3600 + int(em) * 60 + int(es)) - base_clock) % 86400
+
+            # 해당 시간대의 재전사 세그먼트 찾기 (±3초)
+            best_seg = None
+            best_dist = float('inf')
+            for seg in segments:
+                seg_start = seg.get("start", 0)
+                dist = abs(seg_start - ex_offset)
+                if dist < best_dist and dist <= 3.0:
+                    best_dist = dist
+                    best_seg = seg
+
+            if not best_seg:
+                continue
+
+            new_text = best_seg.get("text", "").strip()
+            if not new_text or new_text == ex_text:
+                continue
+
+            # 할루시네이션 필터
+            new_text = _filter_hallucination(new_text)
+            if not new_text:
+                continue
+
+            # 재전사가 더 나은지 간단 판단: 길이가 비슷하고 의미있는 텍스트
+            if len(new_text) < len(ex_text) * 0.3:
+                continue  # 너무 짧아진 건 무시
+
+            # MD 파일에서 교체
+            old_line = f"**{ex_time}** | **{ex_speaker}**: {ex_text}"
+            new_line = f"**{ex_time}** | **{ex_speaker}**: {new_text}"
+            for i, line in enumerate(lines):
+                if old_line in line:
+                    lines[i] = line.replace(old_line, new_line, 1)
+                    corrected += 1
+                    break
+
+        if corrected > 0:
+            self.md_path.write_text("\n".join(lines), encoding="utf-8")
+            print(f"[INFO] 전체 재전사 완료: {corrected}건 교정 ({len(segments)} 세그먼트)", file=sys.stderr)
+            self.emit("status", {"msg": f"✅ 전체 재전사 {corrected}건 교정"})
+        else:
+            print(f"[INFO] 전체 재전사: 교정 필요 없음 ({len(segments)} 세그먼트)", file=sys.stderr)
+
     def _rematch_speakers(self):
         """회의 종료 후 전체 오디오로 화자 재매칭 — 실시간 오인식 보정."""
         import torch
@@ -2154,7 +2297,7 @@ class MeetingRecorder:
                 if start_m:
                     sh, smn, ss = start_m.group(1).split(":")
                     start_sec = int(sh) * 3600 + int(smn) * 60 + int(ss)
-                    offset = line_sec - start_sec
+                    offset = (line_sec - start_sec) % 86400
                 else:
                     continue
 
@@ -2493,6 +2636,14 @@ class MeetingRecorder:
             except Exception as exc:
                 print(f"[WARN] 오디오 저장 실패: {exc}", file=sys.stderr)
 
+        # 회의 후 전체 오디오 재전사 (청크 단위보다 높은 정확도)
+        if self._full_audio_chunks and self.md_path:
+            self.emit("status", {"msg": "🔄 전체 오디오 재전사 중..."})
+            try:
+                self._retranscribe_full_audio()
+            except Exception as exc:
+                print(f"[WARN] 전체 재전사 실패: {exc}", file=sys.stderr)
+
         # 회의 후 전체 오디오로 화자 재매칭 (정확도 향상)
         if self._full_audio_chunks and HAS_PYANNOTE and self.md_path:
             self.emit("status", {"msg": "🔄 화자 재매칭 중 (전체 오디오 분석)..."})
@@ -2500,7 +2651,8 @@ class MeetingRecorder:
                 self._rematch_speakers()
             except Exception as exc:
                 print(f"[WARN] 화자 재매칭 실패: {exc}", file=sys.stderr)
-            self._full_audio_chunks.clear()
+        # 메모리 해제 (pyannote 없어도 반드시 실행)
+        self._full_audio_chunks.clear()
 
         # 회의 후 연속 같은 화자 발화 병합 (가독성 향상)
         if self.md_path and self.md_path.exists():
