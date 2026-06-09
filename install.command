@@ -75,7 +75,7 @@ fi
 # ── 3. pip 패키지 설치 ────────────────────────────────────
 step "필수 패키지 설치 중... (수 분 소요될 수 있습니다)"
 
-PACKAGES="flask sounddevice numpy send2trash faster-whisper resemblyzer noisereduce cryptography torch pyannote.audio asteroid omegaconf"
+PACKAGES="flask sounddevice numpy send2trash faster-whisper resemblyzer noisereduce cryptography torch pyannote.audio asteroid omegaconf scikit-learn sentence-transformers"
 
 # mlx-whisper 선택 설치 (Apple Silicon GPU 가속, 2~5배 빠름)
 if [[ "$(uname -m)" == "arm64" ]]; then
@@ -125,6 +125,23 @@ try:
 except Exception as e:
     print(f'  ⚠️  모델 다운로드 실패: {e}')
     print('  ℹ️  첫 회의 시작 시 자동으로 다시 다운로드됩니다.')
+"
+
+# ── 4.5. 시맨틱 검색 모델(e5) 다운로드 ────────────────────
+step "회의록 의미 기반 검색 모델(e5) 다운로드 중..."
+echo ""
+echo "  📥  multilingual-e5-small (~470MB) 다운로드 중..."
+echo "  ℹ️  회의록 하이브리드(키워드+의미) 검색에 사용됩니다."
+echo ""
+
+$PYTHON -c "
+try:
+    from sentence_transformers import SentenceTransformer
+    SentenceTransformer('intfloat/multilingual-e5-small')
+    print('  ✅  e5 검색 모델 준비 완료')
+except Exception as e:
+    print(f'  ℹ️  e5 모델 생략 ({e})')
+    print('  ℹ️  검색은 키워드/TF-IDF 방식으로 자동 동작합니다.')
 "
 
 # ── 5. LLM 백엔드 설정 ───────────────────────────────────

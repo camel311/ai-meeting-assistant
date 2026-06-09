@@ -7,6 +7,7 @@ voices/
 
 # 자동 생성 파일
 action_status.json
+.search_index.db
 settings.json
 vocab_ko.json
 vocab_ja.json

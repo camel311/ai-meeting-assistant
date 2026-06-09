@@ -616,7 +616,7 @@ body.readonly-mode #transcript { flex:1; }
     </div>
     <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--t3);cursor:pointer;margin-bottom:8px">
       <input type="checkbox" id="semantic-search-cb" style="width:12px;height:12px">
-      🔍 시맨틱 검색
+      🧠 의미 검색 (하이브리드)
     </label>
     <div id="search-filters" class="hidden" style="display:none;flex-direction:column;gap:5px;margin-bottom:8px">
       <input id="search-speaker" placeholder="발화자 필터 (예: Jerry)" style="font-size:11px;width:100%"/>
@@ -1301,57 +1301,69 @@ function doSearch() {
   var keyword = document.getElementById('search-input').value.trim();
   if (!keyword) { clearSearch(); return; }
 
-  var isSemanticSearch = document.getElementById('semantic-search-cb') && document.getElementById('semantic-search-cb').checked;
-  if (isSemanticSearch) {
-    fetch('/api/search/semantic?q=' + encodeURIComponent(keyword))
-      .then(function(r){ return r.json(); })
-      .then(function(d){
-        if (d.ok) setSbar('🔍 시맨틱 검색 중... (결과는 SSE로 전달됩니다)');
-        else setSbar('검색 실패: ' + (d.msg || ''));
-      });
-    return;
-  }
-
   var speaker = document.getElementById('search-speaker').value.trim();
   var date    = document.getElementById('search-date').value.trim();
   var filters = document.getElementById('search-filters');
   filters.classList.remove('hidden');
   filters.style.display = 'flex';
 
-  var url = '/api/search?q=' + encodeURIComponent(keyword);
+  var isSemantic = document.getElementById('semantic-search-cb') && document.getElementById('semantic-search-cb').checked;
+  var url = isSemantic
+    ? '/api/search/hybrid?mode=hybrid&q=' + encodeURIComponent(keyword)
+    : '/api/search?q=' + encodeURIComponent(keyword);
   if (speaker) url += '&speaker=' + encodeURIComponent(speaker);
   if (date)    url += '&date='    + encodeURIComponent(date);
 
+  var el = document.getElementById('search-results');
+  var ml = document.getElementById('meetings-list');
+  el.innerHTML = '<div style="font-size:11px;color:var(--t3);padding:4px 0">🔍 ' +
+    (isSemantic ? '의미 검색 중...' : '검색 중...') + '</div>';
+  el.classList.remove('hidden'); ml.classList.add('hidden');
+
   fetch(url).then(function(r){return r.json();}).then(function(d){
-    var el = document.getElementById('search-results');
-    var ml = document.getElementById('meetings-list');
+    renderSearchHits(d, isSemantic);
+  }).catch(function(e){
+    console.error('검색 오류:', e);
+    el.innerHTML = '<div style="font-size:11px;color:var(--danger-text);padding:4px 0">검색 오류</div>';
+  });
+}
 
-    if (!d.ok || d.total === 0) {
-      el.innerHTML = '<div style="font-size:11px;color:var(--t3);padding:4px 0">검색 결과 없음</div>';
-      el.classList.remove('hidden'); ml.classList.add('hidden'); return;
-    }
+// 검색 결과 렌더러 (키워드 / 하이브리드 공용 — 동일 shape)
+function renderSearchHits(d, isSemantic) {
+  var el = document.getElementById('search-results');
+  var ml = document.getElementById('meetings-list');
+  el.classList.remove('hidden'); ml.classList.add('hidden');
 
-    var kw = esc(d.keyword);
-    var html = '<div style="font-size:11px;color:var(--acc);margin-bottom:8px">🔍 ' + d.total + '건 — "' + kw + '"</div>';
-    d.results.forEach(function(r) {
-      html += '<div style="margin-bottom:10px;border-bottom:1px solid var(--bd);padding-bottom:8px">';
-      html += '<div style="color:var(--t1);font-size:12px;font-weight:500;cursor:pointer;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" onclick="viewMeeting(\'' + encodeURIComponent(r.file) + '\')">' + esc(r.title) + '</div>';
-      r.hits.slice(0, 3).forEach(function(h) {
-        var escaped = esc(h.text);
-        var rx = new RegExp('(' + kw.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi');
-        var highlighted = escaped.replace(rx, '<mark style="background:rgba(251,191,36,0.2);color:var(--warn-text);padding:0 2px;border-radius:3px">$1</mark>');
-        html += '<div style="display:flex;gap:6px;align-items:flex-start;padding:2px 0">' +
-          '<span style="font-size:10px;color:var(--t3);min-width:50px;flex-shrink:0;font-variant-numeric:tabular-nums">' + esc(h.time) + '</span>' +
-          '<span class="badge ' + getColor(h.speaker) + '" style="flex-shrink:0">' + esc(h.speaker) + '</span>' +
-          '<span style="color:var(--t2);font-size:11px;line-height:1.5">' + highlighted + '</span></div>';
-      });
-      if (r.hits.length > 3)
-        html += '<div style="font-size:10px;color:var(--t3);margin-top:2px">+' + (r.hits.length-3) + '건 더</div>';
-      html += '</div>';
+  if (!d || !d.ok || !d.total) {
+    el.innerHTML = '<div style="font-size:11px;color:var(--t3);padding:4px 0">검색 결과 없음' +
+      (d && d.msg ? ' — ' + esc(d.msg) : '') + '</div>';
+    return;
+  }
+
+  var kw = esc(d.keyword || '');
+  var tag = isSemantic
+    ? '<span style="color:var(--t3);font-weight:400"> · 🧠 ' + esc(d.backend || 'hybrid') + '</span>'
+    : '';
+  var html = '<div style="font-size:11px;color:var(--acc);margin-bottom:8px">🔍 ' + d.total + '건 — "' + kw + '"' + tag + '</div>';
+  var rx = kw ? new RegExp('(' + kw.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi') : null;
+
+  d.results.forEach(function(r) {
+    html += '<div style="margin-bottom:10px;border-bottom:1px solid var(--bd);padding-bottom:8px">';
+    html += '<div style="color:var(--t1);font-size:12px;font-weight:500;cursor:pointer;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" onclick="viewMeeting(\'' + encodeURIComponent(r.file) + '\')">' + esc(r.title) + '</div>';
+    r.hits.slice(0, 3).forEach(function(h) {
+      var txt = esc(h.text);
+      var highlighted = rx ? txt.replace(rx, '<mark style="background:rgba(251,191,36,0.2);color:var(--warn-text);padding:0 2px;border-radius:3px">$1</mark>') : txt;
+      html += '<div style="display:flex;gap:6px;align-items:flex-start;padding:2px 0">' +
+        '<span style="font-size:10px;color:var(--t3);min-width:50px;flex-shrink:0;font-variant-numeric:tabular-nums">' + esc(h.time) + '</span>' +
+        '<span class="badge ' + getColor(h.speaker) + '" style="flex-shrink:0">' + esc(h.speaker) + '</span>' +
+        '<span style="color:var(--t2);font-size:11px;line-height:1.5">' + highlighted + '</span></div>';
     });
+    if (r.hits.length > 3)
+      html += '<div style="font-size:10px;color:var(--t3);margin-top:2px">+' + (r.hits.length-3) + '건 더</div>';
+    html += '</div>';
+  });
 
-    el.innerHTML = html; el.classList.remove('hidden'); ml.classList.add('hidden');
-  }).catch(function(e){ console.error('검색 오류:', e); });
+  el.innerHTML = html;
 }
 
 function clearSearch() {
@@ -1720,9 +1732,6 @@ function handle(ev) {
         }
       }
       break;
-    case 'semantic_results':
-      showSemanticResults(ev.data);
-      break;
     case 'ai_search_result':
       showAISearchResult(ev.data);
       break;
@@ -2062,20 +2071,6 @@ function loadBriefing() {
 }
 
 // ── 시맨틱 검색 결과 표시 ─────────────────────────────────
-function showSemanticResults(data) {
-  var results = data.results || [];
-  var query = data.query || '';
-  setSbar('🔍 시맨틱 검색 완료: ' + (data.total || 0) + '건 (' + query + ')');
-  if (typeof renderSearchResults === 'function') {
-    renderSearchResults(results);
-  } else if (results.length > 0) {
-    var msgs = results.slice(0,3).map(function(r) {
-      return (r.hits || []).slice(0,2).map(function(h){ return '[' + h.speaker + '] ' + h.text; }).join(' | ');
-    }).join('\n');
-    setSbar('🔍 ' + msgs.substring(0, 100));
-  }
-}
-
 // ── AI 대화형 검색 ────────────────────────────────────────
 function toggleAISearch() {
   var panel = document.getElementById('ai-search-panel');

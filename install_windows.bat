@@ -54,7 +54,7 @@ echo  🔧  필수 패키지 설치 중... (수 분 소요)
 echo  ──────────────────────────────────────────
 echo.
 
-set PACKAGES=flask sounddevice numpy send2trash faster-whisper resemblyzer noisereduce webrtcvad cryptography torch pyannote.audio asteroid omegaconf
+set PACKAGES=flask sounddevice numpy send2trash faster-whisper resemblyzer noisereduce webrtcvad cryptography torch pyannote.audio asteroid omegaconf scikit-learn sentence-transformers
 
 for %%p in (%PACKAGES%) do (
     echo  📦  %%p 설치 중...
@@ -97,6 +97,18 @@ echo  ⏳  인터넷 속도에 따라 3~10분 소요될 수 있습니다.
 echo.
 
 %PYTHON% -c "from faster_whisper import WhisperModel; print('  모델 다운로드 시작...'); WhisperModel('large-v3-turbo', device='cpu', compute_type='int8'); print('  ✅  모델 다운로드 완료')"
+
+:: ── 4.5. 시맨틱 검색 모델(e5) 다운로드 ──────────────────
+echo.
+echo  ──────────────────────────────────────────
+echo  🔧  회의록 의미 기반 검색 모델(e5) 다운로드 중...
+echo  ──────────────────────────────────────────
+echo.
+echo  📥  multilingual-e5-small (~470MB) 다운로드 중...
+echo  ℹ️  회의록 하이브리드(키워드+의미) 검색에 사용됩니다.
+echo.
+
+%PYTHON% -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('intfloat/multilingual-e5-small'); print('  ✅  e5 검색 모델 준비 완료')" || echo  ℹ️  e5 모델 생략 - 검색은 키워드/TF-IDF 방식으로 자동 동작합니다.
 
 :: ── 5. LLM 백엔드 확인 ─────────────────────────────────
 echo.

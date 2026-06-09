@@ -31,6 +31,8 @@ from meeting import (
     _load_separator,
 )
 
+import search   # 하이브리드 RAG 검색 엔진 (FTS5 + e5 임베딩)
+
 _BASE_DIR = OUTPUT_DIR.parent
 SETTINGS_FILE = _BASE_DIR / "settings.json"
 
@@ -516,92 +518,31 @@ def api_search():
     total = sum(len(r["hits"]) for r in results)
     return jsonify({"ok": True, "total": total, "results": results, "keyword": keyword})
 
-# ── 시맨틱 검색 API ───────────────────────────────────────
-@app.route("/api/search/semantic")
-def api_search_semantic():
-    """Claude를 활용한 의미 기반 회의록 검색"""
-    query = request.args.get("q", "").strip()
-    limit = min(int(request.args.get("limit", 3)), 5)
+# ── 하이브리드 RAG 검색 API (FTS5 키워드 + e5 임베딩 → RRF) ──
+@app.route("/api/search/hybrid")
+def api_search_hybrid():
+    """
+    하이브리드 검색(동기 JSON). mode: hybrid | keyword | semantic.
+    반환 shape는 /api/search와 동일 → 프론트 동일 렌더러 재사용.
+    """
+    query   = request.args.get("q", "").strip()
+    mode    = request.args.get("mode", "hybrid").strip()
+    speaker = request.args.get("speaker", "").strip()
+    date    = request.args.get("date", "").strip()
     if not query:
         return jsonify({"ok": False, "msg": "검색어 없음"})
-
-    files = sorted(OUTPUT_DIR.glob("meeting_*.md"), reverse=True)[:10]
-    if not files:
-        return jsonify({"ok": True, "total": 0, "results": [], "query": query})
-
-    # 각 파일에서 발화 추출 (최대 40줄)
-    candidates = []
-    for f in files:
-        try:
-            content = f.read_text(encoding="utf-8")
-            lines = [l for l in content.splitlines()
-                     if l.startswith("**") and "|" in l][:40]
-            if lines:
-                candidates.append({"file": f.name, "lines": lines})
-        except Exception:
-            pass
-
-    if not candidates:
-        return jsonify({"ok": True, "total": 0, "results": [], "query": query})
-
-    def _semantic_search():
-        from meeting import claude_run
-        import re as _re
-        all_entries = []
-        for c in candidates:
-            for ln in c["lines"]:
-                sp_m = _re.search(r'\*\*([^*]+)\*\*:\s*(.+)$', ln)
-                tm_m = _re.search(r'\*\*(\d{2}:\d{2}:\d{2})\*\*', ln)
-                if sp_m:
-                    all_entries.append({
-                        "file": c["file"],
-                        "speaker": sp_m.group(1),
-                        "text": sp_m.group(2).strip(),
-                        "time": tm_m.group(1) if tm_m else "",
-                    })
-
-        if not all_entries:
-            sse.push("semantic_results", {"results": [], "query": query})
-            return
-
-        # 발화 목록을 번호와 함께 Claude에게 전달
-        numbered = "\n".join(
-            f"{i+1}. [{e['file']}][{e['speaker']}] {e['text']}"
-            for i, e in enumerate(all_entries[:80])
-        )
-        prompt = (
-            f"다음 회의 발화 목록에서 '{query}'와 의미적으로 관련된 항목의 번호를 "
-            f"최대 {limit*3}개만 쉼표로 나열해줘. 번호만 출력:\n\n{numbered}"
-        )
-        result = claude_run(prompt, timeout=20)
-        if not result:
-            sse.push("semantic_results", {"results": [], "query": query})
-            return
-
-        nums = [int(x.strip()) - 1 for x in result.split(",")
-                if x.strip().isdigit() and 0 < int(x.strip()) <= len(all_entries)]
-
-        seen_files: dict = {}
-        for idx in nums:
-            entry = all_entries[idx]
-            fname = entry["file"]
-            if fname not in seen_files:
-                seen_files[fname] = {"file": fname, "title": fname.replace(".md",""), "hits": []}
-            seen_files[fname]["hits"].append({
-                "time": entry["time"],
-                "speaker": entry["speaker"],
-                "text": entry["text"],
-                "context": [],
-            })
-
-        sse.push("semantic_results", {
-            "results": list(seen_files.values()),
-            "query": query,
-            "total": sum(len(v["hits"]) for v in seen_files.values()),
-        })
-
-    threading.Thread(target=_semantic_search, daemon=True).start()
-    return jsonify({"ok": True})
+    if mode not in ("hybrid", "keyword", "semantic"):
+        mode = "hybrid"
+    try:
+        top = min(max(int(request.args.get("top", 12) or 12), 1), 30)
+    except ValueError:
+        top = 12
+    try:
+        res = search.search(query, top_k=top, mode=mode, date=date, speaker=speaker)
+    except Exception as e:
+        return jsonify({"ok": False, "msg": f"검색 오류: {e}"})
+    res["keyword"] = query          # 프론트 하이라이트용
+    return jsonify(res)
 
 # ── Slack 회의 요약 전송 ──────────────────────────────────
 @app.route("/api/slack/send", methods=["POST"])
@@ -1234,6 +1175,18 @@ if __name__ == "__main__":
 
     _open_url = f"{proto}://localhost:{PORT}"
     threading.Timer(2.0, lambda: webbrowser.open(_open_url)).start()
+
+    # e5 검색 모델 백그라운드 프리워밍 — 첫 검색 지연(~8초) 제거
+    def _prewarm_search():
+        try:
+            be = search.load_embed_backend()
+            if be is not None:
+                be.encode(["warmup"], is_query=True)   # 모델 가중치 + 추론 경로 워밍
+                print("🔥 검색 모델(e5) 프리워밍 완료 — 첫 검색부터 즉시 응답", flush=True)
+        except Exception as e:
+            print(f"ℹ️  검색 모델 프리워밍 생략 ({e}) — 키워드/TF-IDF로 동작", flush=True)
+    threading.Thread(target=_prewarm_search, daemon=True).start()
+
     app.run(host="0.0.0.0", port=PORT, debug=False, threaded=True,
             ssl_context=ssl_ctx)
 
