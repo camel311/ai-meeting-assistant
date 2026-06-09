@@ -16,6 +16,10 @@ vocab_en.json
 glossary.json
 corrections.json
 hallucination_patterns.json
+quality_log.json
+
+# 컨텍스트 모드 (회사 내부 정보 포함 가능)
+contexts/kolon.md
 
 # Claude Code 내부 데이터
 .claude/

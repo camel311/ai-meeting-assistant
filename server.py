@@ -282,6 +282,7 @@ def api_start():
         language      = data.get("language", "ko")
         template      = data.get("template", "general")
         chunk_seconds = int(data.get("chunk_seconds", 8))
+        context_mode  = data.get("context_mode", "default")
         device_id_raw = data.get("device_id")
         device_id = int(device_id_raw) if device_id_raw is not None else None
         extra_device_ids_raw = data.get("extra_device_ids", [])
@@ -304,6 +305,7 @@ def api_start():
             chunk_seconds=chunk_seconds,
             device_id=device_id,
             extra_device_ids=extra_device_ids,
+            context_mode=context_mode,
         )
         threading.Thread(target=recorder.start, daemon=True).start()
 
@@ -672,6 +674,18 @@ def _md_to_slack_blocks(md: str) -> list:
 
     flush_section()
     return blocks
+
+# ── 컨텍스트 모드 API ────────────────────────────────────
+@app.route("/api/contexts")
+def api_contexts():
+    return jsonify(MeetingRecorder.list_contexts())
+
+# ── 품질 로그 API ────────────────────────────────────────
+@app.route("/api/quality")
+def api_quality():
+    from meeting import _load_quality_log
+    logs = _load_quality_log()
+    return jsonify({"ok": True, "logs": logs})
 
 # ── AI 대화형 회의록 검색 ─────────────────────────────────
 @app.route("/api/search/ai", methods=["POST"])

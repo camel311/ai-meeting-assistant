@@ -358,6 +358,28 @@ def _atomic_write(path: Path, content: str):
         path.write_text(content, encoding="utf-8")
 
 
+QUALITY_LOG_FILE = _BASE_DIR / "quality_log.json"
+
+
+def _load_quality_log() -> List[dict]:
+    """품질 로그 로드."""
+    if not QUALITY_LOG_FILE.exists():
+        return []
+    try:
+        return json.loads(QUALITY_LOG_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+
+def _save_quality_score(score: dict):
+    """회의 품질 점수 저장."""
+    logs = _load_quality_log()
+    logs.append(score)
+    # 최근 200건만 유지
+    logs = logs[-200:]
+    _atomic_write(QUALITY_LOG_FILE, json.dumps(logs, ensure_ascii=False, indent=2))
+
+
 VOCAB_FILE       = _BASE_DIR / "vocab.json"
 GLOSSARY_FILE    = _BASE_DIR / "glossary.json"
 CORRECTIONS_FILE = _BASE_DIR / "corrections.json"
@@ -1335,6 +1357,36 @@ class MeetingRecorder:
             print(f"📝 도메인 용어 {len(extracted)}개 자동 등록: {', '.join(extracted[:5])}{'...' if len(extracted)>5 else ''}\n")
         return cls._model
 
+    CONTEXTS_DIR = _BASE_DIR / "contexts"
+
+    @staticmethod
+    def _load_context(mode: str) -> str:
+        """모드별 컨텍스트 파일 로드."""
+        ctx_path = _BASE_DIR / "contexts" / f"{mode}.md"
+        if ctx_path.exists():
+            try:
+                return ctx_path.read_text(encoding="utf-8")
+            except Exception:
+                pass
+        return ""
+
+    @staticmethod
+    def list_contexts() -> List[dict]:
+        """사용 가능한 컨텍스트 모드 목록."""
+        ctx_dir = _BASE_DIR / "contexts"
+        if not ctx_dir.exists():
+            return [{"id": "default", "name": "일반 모드"}]
+        result = []
+        for f in sorted(ctx_dir.glob("*.md")):
+            # 첫 줄에서 이름 추출
+            try:
+                first_line = f.read_text(encoding="utf-8").split("\n")[0]
+                name = first_line.lstrip("# ").strip() or f.stem
+            except Exception:
+                name = f.stem
+            result.append({"id": f.stem, "name": name})
+        return result or [{"id": "default", "name": "일반 모드"}]
+
     def __init__(
         self,
         mode: int,
@@ -1348,12 +1400,15 @@ class MeetingRecorder:
         device_id: Optional[int] = None,
         extra_device_ids: Optional[List[int]] = None,
         output_dir: Optional[Path] = None,
+        context_mode: str = "default",
     ):
         self.mode           = mode
         self.participants   = participants
         self.on_event       = on_event
         self.language       = language
         self.template       = template
+        self.context_mode   = context_mode
+        self._context_text  = self._load_context(context_mode)
         self.chunk_seconds  = chunk_seconds
         self.device_id      = device_id
         self.extra_device_ids: List[int] = extra_device_ids or []
@@ -1392,6 +1447,13 @@ class MeetingRecorder:
         # 전체 오디오 저장 (회의 후 화자 재매칭용)
         self._full_audio_chunks: List[np.ndarray] = []
 
+        # 품질 메트릭 수집
+        self._q_total_chunks: int = 0       # 전체 청크 수
+        self._q_halluc_filtered: int = 0    # 할루시네이션 필터된 수
+        self._q_duplicate_skipped: int = 0  # 중복 텍스트 스킵 수
+        self._q_corrections: int = 0        # STT 교정 횟수
+        self._q_short_skipped: int = 0      # 짧은 발화 스킵 수
+
         # 화자별 발화 시간 추적 (초)
         self.speaker_seconds: Dict[str, float] = {}
         # 연속 발화 병합용 (같은 화자 5초 이내 재발화 → 한 줄로)
@@ -1409,6 +1471,12 @@ class MeetingRecorder:
     # ── 유틸 ──────────────────────────────────────────────
     def emit(self, type_: str, data: dict):
         self.on_event(type_, data)
+
+    def _claude_with_context(self, prompt: str, **kwargs) -> str:
+        """컨텍스트 모드가 적용된 Claude 호출."""
+        if self._context_text:
+            prompt = f"[컨텍스트]\n{self._context_text}\n\n[요청]\n{prompt}"
+        return claude_run(prompt, **kwargs)
 
     def _claude_inc(self):
         """Claude 호출 시작 — UI 스피너 활성화"""
@@ -1740,13 +1808,17 @@ class MeetingRecorder:
                 continue
             text = re.sub(r'\.{2,}', '', text)
             text = re.sub(r'^[어음그저아]+[,\s]+', '', text.strip())
-            text = _filter_hallucination(text)
-            text = text.strip()
+            self._q_total_chunks += 1
+            filtered = _filter_hallucination(text)
+            if filtered != text:
+                self._q_halluc_filtered += 1
+            text = filtered.strip()
             if not text or set(text) <= {'.', ' ', '·'}:
                 continue
 
             # 이전 발화와 동일한 텍스트 중복 방지
             if hasattr(self, '_last_text') and text == self._last_text:
+                self._q_duplicate_skipped += 1
                 continue
             self._last_text = text
 
@@ -1849,6 +1921,7 @@ class MeetingRecorder:
 
         # 짧은 발화는 임베딩 추출 건너뜀 (부정확한 결과 방지)
         if audio_sec < MIN_EMBED_SECONDS:
+            self._q_short_skipped += 1
             return self._last_speaker or (self.participants[0] if self.participants else "미등록"), None
 
         # 화자 변경 감지 (segmentation) — 변경 없으면 이전 화자 유지
@@ -1938,10 +2011,11 @@ class MeetingRecorder:
         self._claude_inc()
         try:
             prompt = self.lang_cfg["correct_prompt"].format(text=raw)
-            corrected = claude_run(prompt, timeout=CLAUDE_TIMEOUT, model=CLAUDE_FAST_MODEL)
+            corrected = self._claude_with_context(prompt, timeout=CLAUDE_TIMEOUT, model=CLAUDE_FAST_MODEL)
         finally:
             self._claude_dec()
         if not corrected or corrected == raw: return
+        self._q_corrections += 1
         # Claude 메타 응답 감지 (교정 대신 질문/설명을 반환한 경우) → 원문 유지
         _meta_patterns = ["불완전한", "확인해주", "요청하시", "도와드리", "말씀해주", "알려주시",
                           "문맥에서", "교정을 제시", "설명해", "가능한 정정", "수정할 부분",
@@ -2472,7 +2546,7 @@ class MeetingRecorder:
                 f"## 원본\n\n{batch_text}"
             )
 
-            result = claude_run(prompt, timeout=60, retries=1,
+            result = self._claude_with_context(prompt, timeout=60, retries=1,
                                 model=CLAUDE_FAST_MODEL)
             if not result:
                 continue
@@ -2674,7 +2748,7 @@ class MeetingRecorder:
         self.emit("status", {"msg": "📝 AI 회의 분석 중..."})
         try:
             content = self.md_path.read_text(encoding="utf-8")
-            summary = claude_run(
+            summary = self._claude_with_context(
                 self.tmpl_cfg["prompt"].format(content=content),
                 timeout=120,
                 retries=3
@@ -2722,6 +2796,33 @@ class MeetingRecorder:
                 target=self._detect_hallucination_patterns,
                 daemon=True
             ).start()
+
+        # 품질 점수 저장
+        try:
+            duration = sum(self.speaker_seconds.values())
+            total_lines = self._q_total_chunks
+            score = {
+                "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "file": self.md_path.name if self.md_path else "",
+                "duration_min": round(duration / 60, 1),
+                "total_chunks": total_lines,
+                "halluc_filtered": self._q_halluc_filtered,
+                "halluc_rate": round(self._q_halluc_filtered / max(1, total_lines) * 100, 1),
+                "duplicate_skipped": self._q_duplicate_skipped,
+                "corrections": self._q_corrections,
+                "correction_rate": round(self._q_corrections / max(1, total_lines) * 100, 1),
+                "short_skipped": self._q_short_skipped,
+                "speakers": len(self.speaker_seconds),
+                "unknown_speakers": len(self.unknown_clusters),
+            }
+            _save_quality_score(score)
+            print(f"[INFO] 품질 점수: 할루시네이션 {score['halluc_rate']}%, "
+                  f"교정 {score['correction_rate']}%, "
+                  f"중복 {self._q_duplicate_skipped}건, "
+                  f"화자 {score['speakers']}명(미등록 {score['unknown_speakers']}명)",
+                  file=sys.stderr)
+        except Exception:
+            pass
 
         if unknowns:
             self.emit("unknown_speakers_found", {"speakers": [

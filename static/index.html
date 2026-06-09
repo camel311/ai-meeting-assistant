@@ -489,6 +489,13 @@ body.readonly-mode #transcript { flex:1; }
       </select>
     </div>
 
+    <div style="margin-bottom:10px">
+      <div style="font-size:11px;color:var(--t3);margin-bottom:4px">AI 컨텍스트</div>
+      <select id="context-sel">
+        <option value="default">🌐 일반 모드</option>
+      </select>
+    </div>
+
     <!-- 모드 토글 -->
     <div style="margin-bottom:14px">
       <div style="font-size:11px;color:var(--t3);margin-bottom:6px">화자 식별</div>
@@ -1225,6 +1232,7 @@ function startMeeting() {
   fetch('/api/start', {method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({mode: mode, participants: participants, language: language,
                           template: template, chunk_seconds: chunkSeconds,
+                          context_mode: document.getElementById('context-sel').value,
                           device_id: _selectedDeviceId, extra_device_ids: extraDeviceIds})})
     .then(function(r){return r.json();})
     .then(function(d){if(!d.ok) setSbar('❌ '+(d.msg||'시작 실패'),'red');})
@@ -2794,6 +2802,18 @@ function tick() {
 document.getElementById('unknown-panel').classList.add('hidden');
 connectSSE(); loadProfiles(); onMode();
 loadMicDevices();
+// 컨텍스트 모드 목록 로드
+fetch('/api/contexts').then(function(r){return r.json();}).then(function(list){
+  var sel = document.getElementById('context-sel');
+  if (!sel || !list.length) return;
+  sel.innerHTML = list.map(function(c){
+    return '<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>';
+  }).join('');
+  // localStorage에서 이전 선택 복원
+  var saved = localStorage.getItem('mtg_context');
+  if (saved) sel.value = saved;
+  sel.onchange = function(){ localStorage.setItem('mtg_context', sel.value); };
+});
 // 설정 로드 후 탭 렌더링 + 회의록 목록 로드
 fetch('/api/settings').then(function(r){ return r.json(); }).then(function(d) {
   _settings = d;
