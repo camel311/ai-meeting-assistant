@@ -57,8 +57,8 @@ OUTPUT_DIR        = _BASE_DIR / "meetings"
 VOICES_DIR        = _BASE_DIR / "voices"
 
 MAX_VOICE_SAMPLES = 100
-IDENTIFY_THRESH   = 0.78      # 저장 프로파일 매칭 (높을수록 엄격)
-CLUSTER_THRESH    = 0.74      # 실시간 클러스터링
+IDENTIFY_THRESH   = 0.72      # 저장 프로파일 매칭 (높을수록 엄격)
+CLUSTER_THRESH    = 0.68      # 실시간 클러스터링
 ENROLL_SECONDS    = 10
 MIN_EMBED_SECONDS = 1.5       # 이보다 짧은 발화는 화자 임베딩 건너뜀
 TOPIC_INTERVAL    = 90
