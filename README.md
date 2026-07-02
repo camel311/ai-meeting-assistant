@@ -212,6 +212,25 @@ Webhook URL 생성: https://api.slack.com/apps → Incoming Webhooks → 채널 
 
 ---
 
+## 🔑 API 키 설정
+
+**설치 시 키를 묻지 않습니다.** 모든 키는 선택사항이며, 없으면 해당 기능만 비활성화되고 나머지는 정상 동작합니다. 필요할 때 아래 표를 보고 추가하면 됩니다.
+
+| 키 | 용도 (없으면?) | 발급처 | 넣는 곳 |
+|----|---------------|--------|---------|
+| `HF_TOKEN` | 화자 분리 고급 모델 (없으면 resemblyzer로 자동 대체) | ① https://huggingface.co/settings/tokens 에서 Read 토큰 생성<br>② https://huggingface.co/pyannote/embedding 접근 요청<br>③ https://huggingface.co/pyannote/segmentation-3.0 접근 요청 | 프로젝트 루트에 `.env` 파일 생성 후 `HF_TOKEN=hf_xxxxx` |
+| Slack Webhook URL | 회의 요약 Slack 전송 (없으면 버튼 비활성) | https://api.slack.com/apps → 앱 생성 → Incoming Webhooks → 채널 선택 | 웹 UI ⚙️ 설정 → Slack 연동 |
+| Asana 토큰 (MCP) | 회의 중 Asana 태스크 조회/등록 | https://app.asana.com/0/my-apps → Personal Access Token | Claude Code MCP 설정 (`claude mcp add` 또는 `~/.claude.json`) — guide.html 참고 |
+| Slack 봇 토큰 (MCP) | 회의 중 Slack 검색/전송 (Webhook과 별개) | https://api.slack.com/apps → OAuth & Permissions → Bot User OAuth Token (`xoxb-...`) + Team ID | Claude Code MCP 설정 — guide.html 참고 |
+
+`.env` 예시 (프로젝트 루트):
+
+```bash
+HF_TOKEN=hf_xxxxxxxxxxxxxxxxxxxx
+```
+
+---
+
 ## ⚙️ 환경 변수
 
 | 변수 | 기본값 | 설명 |
@@ -253,7 +272,4 @@ ollama pull exaone3.5:7.8b-instruct-q4_K_M
 ```
 
 **HuggingFace 모델 접근 승인**
-ECAPA-TDNN 및 segmentation 모델 사용 시:
-1. https://huggingface.co/pyannote/embedding → 접근 요청
-2. https://huggingface.co/pyannote/segmentation-3.0 → 접근 요청
-3. `.env` 파일에 `HF_TOKEN=hf_xxxxx` 설정
+ECAPA-TDNN 및 segmentation 모델 사용 시 위의 [🔑 API 키 설정](#-api-키-설정) 참고 (토큰 발급 + 모델 2개 접근 요청 + `.env` 설정)
